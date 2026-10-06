@@ -286,7 +286,7 @@ export class BoardToolbar {
           iconSpan.innerHTML = this.isZen ? icons.focusExit : icons.focusZen;
         }
 
-        const appLayout = document.querySelector('.standard-game-layout, .sandbox-layout, .multiplayer-layout');
+        const appLayout = document.querySelector('.standard-game-layout, .sandbox-layout');
         if (appLayout) {
           appLayout.classList.toggle('zen-mode-active', this.isZen);
         }

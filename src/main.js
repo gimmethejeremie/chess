@@ -12,7 +12,6 @@ import { icons } from './core/icons/index.js';
 import { openSettingsModal } from './core/settings/index.js';
 import { initStandardMode } from './modes/standard/index.js';
 import { initSandboxMode } from './modes/sandbox/index.js';
-import { initMultiplayerMode } from './modes/multiplayer/index.js';
 
 // Apply initial saved/preferred theme to document element
 store.applyTheme();
@@ -116,7 +115,6 @@ function renderApp() {
       if (modeContainer) {
         if (state.currentMode === 'standard') activeModeInstance = initStandardMode(modeContainer);
         if (state.currentMode === 'sandbox') activeModeInstance = initSandboxMode(modeContainer);
-        if (state.currentMode === 'multiplayer') activeModeInstance = initMultiplayerMode(modeContainer);
 
         const backBtn = document.getElementById('back-to-home');
         if (backBtn) {
@@ -228,18 +226,6 @@ function updateHomeScreenText() {
     if (btn) btn.innerHTML = `<span>${i18n.t('modes.sandbox.action')}</span> ${icons.playArrow}`;
   }
 
-  const cardMultiplayer = document.querySelector('[data-mode="multiplayer"]');
-  if (cardMultiplayer) {
-    const badge = cardMultiplayer.querySelector('.mode-badge');
-    const title = cardMultiplayer.querySelector('.mode-card-title');
-    const desc = cardMultiplayer.querySelector('.mode-card-desc');
-    const btn = cardMultiplayer.querySelector('[data-mode-btn="multiplayer"]');
-    if (badge) badge.textContent = i18n.t('modes.multiplayer.badge');
-    if (title) title.textContent = i18n.t('modes.multiplayer.title');
-    if (desc) desc.textContent = i18n.t('modes.multiplayer.description');
-    if (btn) btn.innerHTML = `<span>${i18n.t('modes.multiplayer.action')}</span> ${icons.playArrow}`;
-  }
-
   updateDemoStatus();
 }
 
@@ -317,30 +303,6 @@ function renderHomeScreen() {
         <div class="mode-card-footer">
           <button class="btn btn-primary" data-mode-btn="sandbox">
             <span>${i18n.t('modes.sandbox.action')}</span>
-            ${icons.playArrow}
-          </button>
-        </div>
-      </article>
-
-      <!-- Card 3: Multiplayer -->
-      <article
-        class="mode-card"
-        data-mode="multiplayer"
-        tabindex="0"
-        role="button"
-        aria-label="${i18n.t('modes.multiplayer.title')}: ${i18n.t('modes.multiplayer.description')}"
-      >
-        <div class="mode-card-header">
-          <div class="mode-icon-box">${icons.modeMultiplayer}</div>
-          <span class="mode-badge">${i18n.t('modes.multiplayer.badge')}</span>
-        </div>
-        <div class="mode-card-body">
-          <h3 class="mode-card-title">${i18n.t('modes.multiplayer.title')}</h3>
-          <p class="mode-card-desc">${i18n.t('modes.multiplayer.description')}</p>
-        </div>
-        <div class="mode-card-footer">
-          <button class="btn btn-primary" data-mode-btn="multiplayer">
-            <span>${i18n.t('modes.multiplayer.action')}</span>
             ${icons.playArrow}
           </button>
         </div>
@@ -583,13 +545,6 @@ function attachEventHandlers() {
       }
     });
   });
-}
-
-// Check URL for direct room join (?room=ABC123)
-const urlParams = new URLSearchParams(window.location.search);
-const roomParam = urlParams.get('room');
-if (roomParam) {
-  store.setMode('multiplayer');
 }
 
 // Subscribe to state updates

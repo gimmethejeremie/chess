@@ -16,7 +16,7 @@ const prefersDark =
   typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
 const state = {
-  currentMode: null, // null (home) | 'standard' | 'sandbox' | 'multiplayer'
+  currentMode: null, // null (home) | 'standard' | 'sandbox'
   theme: storage.get(STORAGE_KEYS.THEME, prefersDark ? 'dark' : 'light'),
   pieceSet: storage.get(STORAGE_KEYS.PIECE_SET, 'cburnett'), // 'cburnett' | 'merida' | 'alpha'
   boardTheme: storage.get(STORAGE_KEYS.BOARD_THEME, 'classic'), // 'classic' | 'wood' | 'ocean' | 'slate'
