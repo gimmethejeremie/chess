@@ -1,0 +1,21 @@
+{
+  "name": "chess-playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "chess.js": "^1.0.0-beta.6",
+    "firebase": "^10.14.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}

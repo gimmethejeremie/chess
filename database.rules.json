@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (
+          !data.exists() ||
+          data.child('creator').val() === auth.uid ||
+          data.child('players/white').val() === auth.uid ||
+          data.child('players/black').val() === auth.uid ||
+          (!data.child('players/white').exists() && data.child('status').val() === 'waiting') ||
+          (!data.child('players/black').exists() && data.child('status').val() === 'waiting')
+        )",
+        "presence": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        }
+      }
+    }
+  }
+}
