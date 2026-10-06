@@ -2,12 +2,8 @@
  * Chess Playground - Main Application Entrypoint
  * Manages mode routing, top app header, settings modal, and global reactive subscriptions.
  */
-import { Chess } from 'chess.js';
 import { i18n } from './core/i18n/index.js';
 import { store } from './core/store/index.js';
-import { soundManager } from './core/sounds/index.js';
-import { BoardRenderer } from './core/board/index.js';
-import { BoardToolbar } from './core/board/boardToolbar.js';
 import { icons } from './core/icons/index.js';
 import { openSettingsModal } from './core/settings/index.js';
 import { initStandardMode } from './modes/standard/index.js';
@@ -17,28 +13,8 @@ import { initSandboxMode } from './modes/sandbox/index.js';
 store.applyTheme();
 
 const appRoot = document.getElementById('app');
-let demoChessInstance = null;
-let demoBoardRenderer = null;
-let demoBoardToolbar = null;
 let currentMountedMode = Symbol('unmounted');
 let activeModeInstance = null;
-
-/**
- * Locate the king square for the given color in a chess.js instance
- */
-function findKingSquare(chess, color) {
-  const board = chess.board();
-  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const piece = board[r][c];
-      if (piece && piece.type === 'k' && piece.color === color) {
-        return `${files[c]}${8 - r}`;
-      }
-    }
-  }
-  return null;
-}
 
 /**
  * Render the entire UI or update in-place based on store and i18n changes
@@ -97,16 +73,7 @@ function renderApp() {
         activeModeInstance.destroy();
         activeModeInstance = null;
       }
-      mountDemoBoard();
     } else {
-      if (demoBoardRenderer) {
-        demoBoardRenderer.destroy();
-        demoBoardRenderer = null;
-      }
-      if (demoBoardToolbar) {
-        demoBoardToolbar.destroy();
-        demoBoardToolbar = null;
-      }
       if (activeModeInstance) {
         activeModeInstance.destroy();
         activeModeInstance = null;
@@ -126,7 +93,7 @@ function renderApp() {
     currentMountedMode = state.currentMode;
   } else {
     // Mode has not changed: update header and in-view labels in-place without destroying active game
-    updateHeaderControls(soundTitle, soundIcon, langLabel, themeLabel, themeIcon);
+    updateHeaderControls(soundTitle, langLabel, themeLabel);
 
     if (!state.currentMode) {
       updateHomeScreenText();
@@ -137,7 +104,7 @@ function renderApp() {
 /**
  * Update header buttons in-place
  */
-function updateHeaderControls(soundTitle, soundIcon, langLabel, themeLabel, themeIcon) {
+function updateHeaderControls(soundTitle, langLabel, themeLabel) {
   const brandTitle = document.querySelector('.brand-title');
   if (brandTitle) brandTitle.textContent = i18n.t('app.title');
 
@@ -178,28 +145,14 @@ function updateHeaderControls(soundTitle, soundIcon, langLabel, themeLabel, them
  * Update home screen text labels in-place on language change
  */
 function updateHomeScreenText() {
+  const heroBadge = document.querySelector('.hero-badge span:last-child');
+  if (heroBadge) heroBadge.textContent = i18n.t('app.heroBadge');
+
   const heroTitle = document.querySelector('.hero-title');
-  if (heroTitle) heroTitle.textContent = i18n.t('app.title');
+  if (heroTitle) heroTitle.textContent = i18n.t('app.heroHeadline');
 
   const heroSubtitle = document.querySelector('.hero-subtitle');
-  if (heroSubtitle) heroSubtitle.textContent = i18n.t('app.subtitle');
-
-  const demoTitle = document.querySelector('.demo-title');
-  if (demoTitle) demoTitle.textContent = i18n.t('demo.title');
-
-  const demoSubtitle = document.querySelector('.demo-subtitle');
-  if (demoSubtitle) demoSubtitle.textContent = i18n.t('demo.subtitle');
-
-  // Synchronize demo board with store in case settings or theme changed
-  const state = store.getState();
-  if (demoBoardRenderer) {
-    demoBoardRenderer.setBoardTheme(state.boardTheme);
-    demoBoardRenderer.setPieceSet(state.pieceSet);
-    demoBoardRenderer.setShowCoordinates(state.showCoordinates);
-  }
-  if (demoBoardToolbar) {
-    demoBoardToolbar.updateState();
-  }
+  if (heroSubtitle) heroSubtitle.textContent = i18n.t('app.heroSub');
 
   // Update mode cards
   const cardStandard = document.querySelector('[data-mode="standard"]');
@@ -225,40 +178,23 @@ function updateHomeScreenText() {
     if (desc) desc.textContent = i18n.t('modes.sandbox.description');
     if (btn) btn.innerHTML = `<span>${i18n.t('modes.sandbox.action')}</span> ${icons.playArrow}`;
   }
-
-  updateDemoStatus();
 }
 
 /**
- * Render Home Screen with Demo Board and 3 Mode Cards
+ * Render Home Screen with Hero, 2 Mode Cards, and Anti-Slop Bento Showcase
  */
 function renderHomeScreen() {
-  const state = store.getState();
-
   return `
     <section class="hero-section">
-      <h2 class="hero-title">${i18n.t('app.title')}</h2>
-      <p class="hero-subtitle">${i18n.t('app.subtitle')}</p>
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span>${i18n.t('app.heroBadge')}</span>
+      </div>
+      <h2 class="hero-title">${i18n.t('app.heroHeadline')}</h2>
+      <p class="hero-subtitle">${i18n.t('app.heroSub')}</p>
     </section>
 
-    <!-- Interactive Demo Board Section -->
-    <section class="demo-board-section">
-      <div class="demo-header">
-        <h3 class="demo-title">${i18n.t('demo.title')}</h3>
-        <p class="demo-subtitle">${i18n.t('demo.subtitle')}</p>
-      </div>
-
-      <div class="demo-board-mount" id="demo-board-mount"></div>
-
-      <div class="demo-status" id="demo-status">
-        White to move
-      </div>
-
-      <!-- Board Toolbar Controls (Reusable Anti-Slop Component) -->
-      <div class="demo-toolbar-container" id="demo-board-toolbar"></div>
-    </section>
-
-    <!-- 3 Modes Navigation Grid -->
+    <!-- 2 Primary Modes Navigation Grid -->
     <div class="modes-grid">
       <!-- Card 1: Standard -->
       <article
@@ -275,6 +211,12 @@ function renderHomeScreen() {
         <div class="mode-card-body">
           <h3 class="mode-card-title">${i18n.t('modes.standard.title')}</h3>
           <p class="mode-card-desc">${i18n.t('modes.standard.description')}</p>
+          <div class="mode-card-tags">
+            <span class="mode-tag">AI 3 Cấp độ</span>
+            <span class="mode-tag">Đồng hồ thi đấu</span>
+            <span class="mode-tag">Biên bản FEN/PGN</span>
+            <span class="mode-tag">Xóa mũi tên</span>
+          </div>
         </div>
         <div class="mode-card-footer">
           <button class="btn btn-primary" data-mode-btn="standard">
@@ -299,6 +241,12 @@ function renderHomeScreen() {
         <div class="mode-card-body">
           <h3 class="mode-card-title">${i18n.t('modes.sandbox.title')}</h3>
           <p class="mode-card-desc">${i18n.t('modes.sandbox.description')}</p>
+          <div class="mode-card-tags">
+            <span class="mode-tag">Vẽ mũi tên Shift</span>
+            <span class="mode-tag">Bảng 12 quân cờ</span>
+            <span class="mode-tag">Nhập & Xuất FEN</span>
+            <span class="mode-tag">Lưu thế cờ</span>
+          </div>
         </div>
         <div class="mode-card-footer">
           <button class="btn btn-primary" data-mode-btn="sandbox">
@@ -308,6 +256,62 @@ function renderHomeScreen() {
         </div>
       </article>
     </div>
+
+    <!-- Anti-Slop Bento Showcase & Quick Guide Grid -->
+    <div class="home-showcase-grid">
+      <!-- Widget 1: Controls & Gestures Cheat Sheet -->
+      <div class="showcase-card">
+        <div class="showcase-card-header">
+          <div class="showcase-icon-box">${icons.arrowTool}</div>
+          <h4 class="showcase-card-title">${i18n.t('app.quickGuideTitle')}</h4>
+        </div>
+        <ul class="shortcut-list">
+          <li class="shortcut-item">
+            <span class="shortcut-desc">${i18n.t('app.shiftDragDesc')}</span>
+            <kbd>${i18n.t('app.shiftDrag')}</kbd>
+          </li>
+          <li class="shortcut-item">
+            <span class="shortcut-desc">${i18n.t('app.rightClickDesc')}</span>
+            <kbd>${i18n.t('app.rightClick')}</kbd>
+          </li>
+          <li class="shortcut-item">
+            <span class="shortcut-desc">${i18n.t('app.arrowKeysDesc')}</span>
+            <kbd>${i18n.t('app.arrowKeys')}</kbd>
+          </li>
+          <li class="shortcut-item">
+            <span class="shortcut-desc">${i18n.t('app.zenKeyDesc')}</span>
+            <kbd>${i18n.t('app.zenKey')}</kbd>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Widget 2: Tactical Opening Spotlight -->
+      <div class="showcase-card">
+        <div class="showcase-card-header">
+          <div class="showcase-icon-box">${icons.crown}</div>
+          <h4 class="showcase-card-title">${i18n.t('app.tacticsTitle')}</h4>
+        </div>
+        <div class="opening-card-body">
+          <div class="opening-name">${i18n.t('app.tacticsOpening')}</div>
+          <div><code class="opening-moves">${i18n.t('app.tacticsMoves')}</code></div>
+          <p class="opening-tip">${i18n.t('app.tacticsTip')}</p>
+        </div>
+      </div>
+
+      <!-- Widget 3: Core Architecture & Standards -->
+      <div class="showcase-card">
+        <div class="showcase-card-header">
+          <div class="showcase-icon-box">${icons.check}</div>
+          <h4 class="showcase-card-title">${i18n.t('app.featuresTitle')}</h4>
+        </div>
+        <ul class="features-list">
+          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem1')}</span></li>
+          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem2')}</span></li>
+          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem3')}</span></li>
+          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem4')}</span></li>
+        </ul>
+      </div>
+    </div>
   `;
 }
 
@@ -316,172 +320,6 @@ function renderHomeScreen() {
  */
 function renderActiveModeContainer() {
   return `<div id="active-mode-mount"></div>`;
-}
-
-/**
- * Initialize and mount the demo board using BoardRenderer + chess.js
- */
-function mountDemoBoard() {
-  const mountEl = document.getElementById('demo-board-mount');
-  if (!mountEl) return;
-
-  const state = store.getState();
-  if (!demoChessInstance) {
-    demoChessInstance = new Chess();
-  }
-
-  if (demoBoardRenderer) {
-    demoBoardRenderer.destroy();
-    demoBoardRenderer = null;
-  }
-  if (demoBoardToolbar) {
-    demoBoardToolbar.destroy();
-    demoBoardToolbar = null;
-  }
-
-  demoBoardRenderer = new BoardRenderer(mountEl, {
-    position: demoChessInstance.board(),
-    orientation: 'white',
-    pieceSet: state.pieceSet,
-    boardTheme: state.boardTheme,
-    showCoordinates: state.showCoordinates,
-    interactive: true,
-
-    onSquareClick: ({ square, piece }) => {
-      handleSquareSelection(square, piece);
-    },
-    onDragStart: ({ square, piece }) => {
-      handleSquareSelection(square, piece);
-    },
-    onDrop: ({ fromSquare, toSquare }) => {
-      handleBoardMove(fromSquare, toSquare);
-    }
-  });
-
-  const toolbarMount = document.getElementById('demo-board-toolbar');
-  if (toolbarMount) {
-    demoBoardToolbar = new BoardToolbar(toolbarMount, {
-      board: demoBoardRenderer,
-      showFlip: true,
-      showThemes: true,
-      showCoords: true,
-      showReset: true,
-      showZen: false,
-      onReset: () => {
-        demoChessInstance.reset();
-        demoBoardRenderer.setPosition(demoChessInstance.board());
-        demoBoardRenderer.clearHighlights();
-        demoBoardRenderer.clearMarkedSquares();
-        updateDemoStatus();
-      }
-    });
-  }
-
-  updateDemoStatus();
-}
-
-/**
- * Handle square click or drag start selection & legal move calculation
- */
-function handleSquareSelection(square, piece) {
-  if (!demoChessInstance || !demoBoardRenderer) return;
-
-  const currentTurn = demoChessInstance.turn();
-  const pieceColor = piece ? piece.charAt(0) : null;
-
-  if (pieceColor === currentTurn) {
-    const legalMoves = demoChessInstance.moves({ square, verbose: true }).map((m) => ({
-      square: m.to,
-      isCapture: Boolean(m.captured)
-    }));
-
-    const checkSquare = demoChessInstance.isCheck()
-      ? findKingSquare(demoChessInstance, currentTurn)
-      : null;
-
-    demoBoardRenderer.setHighlights({
-      selected: square,
-      legalMoves,
-      check: checkSquare
-    });
-  } else if (demoBoardRenderer.highlights.selected) {
-    const fromSquare = demoBoardRenderer.highlights.selected;
-    handleBoardMove(fromSquare, square);
-  }
-}
-
-/**
- * Handle move execution on the demo board
- */
-function handleBoardMove(fromSquare, toSquare) {
-  if (!demoChessInstance || !demoBoardRenderer) return;
-
-  try {
-    const move = demoChessInstance.move({
-      from: fromSquare,
-      to: toSquare,
-      promotion: 'q'
-    });
-
-    if (move) {
-      if (demoChessInstance.isCheck()) {
-        soundManager.play('check');
-      } else if (move.captured) {
-        soundManager.play('capture');
-      } else if (move.flags.includes('k') || move.flags.includes('q')) {
-        soundManager.play('castle');
-      } else if (demoChessInstance.isGameOver()) {
-        soundManager.play('game-end');
-      } else {
-        soundManager.play('move');
-      }
-
-      demoBoardRenderer.setPosition(demoChessInstance.board());
-
-      const activeColor = demoChessInstance.turn();
-      const checkSquare = demoChessInstance.isCheck()
-        ? findKingSquare(demoChessInstance, activeColor)
-        : null;
-
-      demoBoardRenderer.setHighlights({
-        selected: null,
-        legalMoves: [],
-        lastMove: { from: move.from, to: move.to },
-        check: checkSquare
-      });
-
-      updateDemoStatus();
-    } else {
-      demoBoardRenderer.clearHighlights();
-    }
-  } catch (err) {
-    demoBoardRenderer.clearHighlights();
-  }
-}
-
-/**
- * Update the text banner displaying turn or check/gameover status
- */
-function updateDemoStatus() {
-  const statusEl = document.getElementById('demo-status');
-  if (!statusEl || !demoChessInstance) return;
-
-  const isCheck = demoChessInstance.isCheck();
-  const turn = demoChessInstance.turn() === 'w' ? i18n.t('sandbox.white') : i18n.t('sandbox.black');
-
-  statusEl.classList.remove('in-check');
-
-  if (demoChessInstance.isCheckmate()) {
-    statusEl.classList.add('in-check');
-    statusEl.textContent = `${i18n.t('standard.checkmate')}!`;
-  } else if (demoChessInstance.isDraw()) {
-    statusEl.textContent = `${i18n.t('standard.draw')}!`;
-  } else if (isCheck) {
-    statusEl.classList.add('in-check');
-    statusEl.textContent = `${i18n.t('standard.check')} ${turn} ${i18n.t('sandbox.sideToMove').toLowerCase()}`;
-  } else {
-    statusEl.textContent = demoChessInstance.turn() === 'w' ? i18n.t('standard.whiteTurn') : i18n.t('standard.blackTurn');
-  }
 }
 
 /**

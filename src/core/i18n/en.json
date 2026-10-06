@@ -4,7 +4,29 @@
     "subtitle": "Play standard chess, explore the sandbox, or challenge friends online.",
     "themeLight": "Light Theme",
     "themeDark": "Dark Theme",
-    "langToggle": "Tiếng Việt"
+    "langToggle": "Tiếng Việt",
+    "heroBadge": "Pure Web Chess · Focused & Fast",
+    "heroHeadline": "Pure Chess Playground",
+    "heroSub": "Zero clutter, zero distractions. Focus completely on tactical thinking with accurate FIDE chess rules.",
+    "quickGuideTitle": "Controls & Quick Gestures",
+    "quickGuideDesc": "Handy gestures to master the board effortlessly:",
+    "shiftDrag": "Shift + Mouse Drag",
+    "shiftDragDesc": "Draw tactical arrows (Chess.com style)",
+    "rightClick": "Right Click",
+    "rightClickDesc": "Highlight / mark important squares",
+    "arrowKeys": "← / → Arrow Keys",
+    "arrowKeysDesc": "Step through game move history",
+    "zenKey": "Z Key",
+    "zenKeyDesc": "Toggle Zen / Focus Mode",
+    "tacticsTitle": "Opening Spotlight",
+    "tacticsOpening": "Ruy Lopez (Spanish Opening)",
+    "tacticsMoves": "1. e4 e5 2. Nf3 Nc6 3. Bb5",
+    "tacticsTip": "One of the most classical and profound openings in chess history, applying indirect pressure on Black's central e5 square.",
+    "featuresTitle": "Engine & Craftsmanship",
+    "featuresItem1": "FIDE-compliant chess.js core rules engine",
+    "featuresItem2": "3 crisp vector piece sets: cburnett, merida, alpha",
+    "featuresItem3": "4 eye-friendly board color themes",
+    "featuresItem4": "Seamless experience on both desktop and touch devices"
   },
   "demo": {
     "title": "Interactive Demo Board",
@@ -80,7 +102,8 @@
     "confirmResign": "Are you sure you want to resign?",
     "confirmDraw": "Opponent offered a draw. Accept draw?",
     "gameOver": "Game Over",
-    "close": "Close & Review"
+    "close": "Close & Review",
+    "clearAnnotations": "Clear Arrows"
   },
   "sandbox": {
     "title": "Sandbox",

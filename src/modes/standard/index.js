@@ -76,7 +76,8 @@ export class StandardChessGame {
         showFlip: true,
         showThemes: true,
         showCoords: true,
-        showZen: true
+        showZen: true,
+        showClearArrows: true
       });
     }
 
@@ -254,9 +255,10 @@ export class StandardChessGame {
             <div class="game-actions-panel">
               <button class="action-btn" id="std-action-new">${icons.reset}<span>${i18n.t('standard.newGame')}</span></button>
               <button class="action-btn" id="std-action-flip">${icons.flip}<span>${i18n.t('standard.flip')}</span></button>
+              <button class="action-btn" id="std-action-clear-arrows">${icons.clearTrash}<span>${i18n.t('standard.clearAnnotations')}</span></button>
               <button class="action-btn" id="std-action-draw">${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span></button>
               <button class="action-btn danger" id="std-action-resign">${icons.flag}<span>${i18n.t('standard.resign')}</span></button>
-              <button class="action-btn" id="std-action-pgn" style="grid-column: span 2;">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
+              <button class="action-btn" id="std-action-pgn">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
             </div>
           </aside>
         </div>
@@ -341,6 +343,10 @@ export class StandardChessGame {
     // Game Actions
     document.getElementById('std-action-new')?.addEventListener('click', () => this.promptNewGame());
     document.getElementById('std-action-flip')?.addEventListener('click', () => this.handleFlip());
+    document.getElementById('std-action-clear-arrows')?.addEventListener('click', () => {
+      this.board?.clearArrows();
+      this.board?.clearMarkedSquares();
+    });
     document.getElementById('std-action-resign')?.addEventListener('click', () => this.promptResign());
     document.getElementById('std-action-draw')?.addEventListener('click', () => this.promptDrawOffer());
     document.getElementById('std-action-pgn')?.addEventListener('click', () => this.openPgnFenModal());

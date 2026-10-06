@@ -40,10 +40,12 @@ export class BoardToolbar {
     this.showCoords = options.showCoords !== undefined ? options.showCoords : true;
     this.showZen = options.showZen !== undefined ? options.showZen : true;
     this.showReset = Boolean(options.showReset);
+    this.showClearArrows = Boolean(options.showClearArrows);
 
     this.onFlip = options.onFlip || null;
     this.onReset = options.onReset || null;
     this.onZenToggle = options.onZenToggle || null;
+    this.onClearArrows = options.onClearArrows || null;
 
     this.isZen = false;
     this.storeUnsub = null;
@@ -142,6 +144,23 @@ export class BoardToolbar {
             >
               <span class="ctrl-icon">${icons.reset}</span>
               <span class="ctrl-label">${i18n.t('demo.reset') || 'Đặt lại'}</span>
+            </button>
+          `
+              : ''
+          }
+
+          ${
+            this.showClearArrows
+              ? `
+            <button
+              type="button"
+              class="board-ctrl-btn"
+              data-action="clear-arrows"
+              title="${i18n.t('sandbox.clearAnnotations')}"
+              aria-label="${i18n.t('sandbox.clearAnnotations')}"
+            >
+              <span class="ctrl-icon">${icons.clearTrash}</span>
+              <span class="ctrl-label">${i18n.t('sandbox.clearAnnotations')}</span>
             </button>
           `
               : ''
@@ -255,6 +274,20 @@ export class BoardToolbar {
       resetBtn.addEventListener('click', () => {
         if (this.onReset) {
           this.onReset();
+        }
+      });
+    }
+
+    // Clear arrows & marked annotations
+    const clearArrowsBtn = this.container.querySelector('[data-action="clear-arrows"]');
+    if (clearArrowsBtn) {
+      clearArrowsBtn.addEventListener('click', () => {
+        if (this.board) {
+          this.board.clearArrows();
+          this.board.clearMarkedSquares();
+        }
+        if (this.onClearArrows) {
+          this.onClearArrows();
         }
       });
     }

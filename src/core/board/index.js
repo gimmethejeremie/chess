@@ -656,37 +656,29 @@ export class BoardRenderer {
     if (!this.interactive) return;
 
     // Annotation gestures:
-    // 1. Right-click (e.button === 2)
-    // 2. Shift + Left-click or Shift + Right-click (e.shiftKey) - Chess.com style
-    // 3. Left-click when drawMode === 'arrow'
+    // 1. Shift + Left-click or Shift + Right-click -> Draw tactical arrow (Chess.com style)
+    // 2. Left-click when drawMode === 'arrow' (Sandbox arrow tool)
+    // 3. Right-click without Shift -> Square highlight
+    const isShiftArrow = e.shiftKey && (e.button === 0 || e.button === 2);
+    const isToolArrow = e.button === 0 && this.drawMode === 'arrow';
     const isRightClick = e.button === 2;
-    const isShiftClick = (e.button === 0 || e.button === 2) && e.shiftKey;
-    const isArrowMode = e.button === 0 && this.drawMode === 'arrow';
 
-    if (isRightClick || isShiftClick || isArrowMode) {
+    if (isShiftArrow || isToolArrow || isRightClick) {
       e.preventDefault();
       const square = this.getSquareFromPoint(e.clientX, e.clientY);
       if (square) {
-        let color = 'rgba(245, 158, 11, 0.9)'; // Amber default
-        let markerId = 'arrowhead-default';
+        // Shift or Tool draws green arrows; single right-click creates red square highlight
+        const color = 'rgba(34, 197, 94, 0.9)'; // Green
+        const markerId = 'arrowhead-green';
 
-        if (e.altKey) {
-          color = 'rgba(239, 68, 68, 0.9)'; // Red
-          markerId = 'arrowhead-red';
-        } else if (e.ctrlKey || e.metaKey) {
-          color = 'rgba(59, 130, 246, 0.9)'; // Blue
-          markerId = 'arrowhead-blue';
-        } else if (e.shiftKey) {
-          color = 'rgba(34, 197, 94, 0.9)'; // Green
-          markerId = 'arrowhead-green';
-        }
-
-        this.annotationState.active = true;
-        this.annotationState.pointerId = e.pointerId;
-        this.annotationState.fromSquare = square;
-        this.annotationState.currentSquare = square;
-        this.annotationState.color = color;
-        this.annotationState.markerId = markerId;
+        this.annotationState = {
+          active: true,
+          pointerId: e.pointerId,
+          fromSquare: square,
+          currentSquare: square,
+          color,
+          markerId
+        };
 
         try {
           this.boardElement.setPointerCapture(e.pointerId);
@@ -833,15 +825,10 @@ export class BoardRenderer {
 
       if (fromSquare && toSquare) {
         if (fromSquare === toSquare) {
-          // Toggle square highlight
-          const markColor = color.replace('0.9', '0.45');
+          // Toggle square highlight (red mark)
+          const markColor = 'rgba(239, 68, 68, 0.45)';
           if (this.highlights.markedSquares.has(fromSquare)) {
-            const existing = this.highlights.markedSquares.get(fromSquare);
-            if (existing === markColor) {
-              this.highlights.markedSquares.delete(fromSquare);
-            } else {
-              this.highlights.markedSquares.set(fromSquare, markColor);
-            }
+            this.highlights.markedSquares.delete(fromSquare);
           } else {
             this.highlights.markedSquares.set(fromSquare, markColor);
           }
