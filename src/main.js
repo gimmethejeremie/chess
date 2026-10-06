@@ -257,62 +257,6 @@ function renderHomeScreen() {
         </div>
       </article>
     </div>
-
-    <!-- Anti-Slop Bento Showcase & Quick Guide Grid -->
-    <div class="home-showcase-grid">
-      <!-- Widget 1: Controls & Gestures Cheat Sheet -->
-      <div class="showcase-card">
-        <div class="showcase-card-header">
-          <div class="showcase-icon-box">${icons.arrowTool}</div>
-          <h4 class="showcase-card-title">${i18n.t('app.quickGuideTitle')}</h4>
-        </div>
-        <ul class="shortcut-list">
-          <li class="shortcut-item">
-            <span class="shortcut-desc">${i18n.t('app.shiftDragDesc')}</span>
-            <kbd>${i18n.t('app.shiftDrag')}</kbd>
-          </li>
-          <li class="shortcut-item">
-            <span class="shortcut-desc">${i18n.t('app.rightClickDesc')}</span>
-            <kbd>${i18n.t('app.rightClick')}</kbd>
-          </li>
-          <li class="shortcut-item">
-            <span class="shortcut-desc">${i18n.t('app.arrowKeysDesc')}</span>
-            <kbd>${i18n.t('app.arrowKeys')}</kbd>
-          </li>
-          <li class="shortcut-item">
-            <span class="shortcut-desc">${i18n.t('app.zenKeyDesc')}</span>
-            <kbd>${i18n.t('app.zenKey')}</kbd>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Widget 2: Tactical Opening Spotlight -->
-      <div class="showcase-card">
-        <div class="showcase-card-header">
-          <div class="showcase-icon-box">${icons.crown}</div>
-          <h4 class="showcase-card-title">${i18n.t('app.tacticsTitle')}</h4>
-        </div>
-        <div class="opening-card-body">
-          <div class="opening-name">${i18n.t('app.tacticsOpening')}</div>
-          <div><code class="opening-moves">${i18n.t('app.tacticsMoves')}</code></div>
-          <p class="opening-tip">${i18n.t('app.tacticsTip')}</p>
-        </div>
-      </div>
-
-      <!-- Widget 3: Core Architecture & Standards -->
-      <div class="showcase-card">
-        <div class="showcase-card-header">
-          <div class="showcase-icon-box">${icons.check}</div>
-          <h4 class="showcase-card-title">${i18n.t('app.featuresTitle')}</h4>
-        </div>
-        <ul class="features-list">
-          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem1')}</span></li>
-          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem2')}</span></li>
-          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem3')}</span></li>
-          <li class="features-item">${icons.check} <span>${i18n.t('app.featuresItem4')}</span></li>
-        </ul>
-      </div>
-    </div>
   `;
 }
 
