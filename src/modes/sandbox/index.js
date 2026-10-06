@@ -156,17 +156,12 @@ export class SandboxGame {
     const clearBtn = document.getElementById('sb-btn-clear');
     if (clearBtn) {
       clearBtn.title = i18n.t('sandbox.clear');
-      clearBtn.innerHTML = `${icons.trash}<span>${i18n.t('sandbox.clear')}</span>`;
+      clearBtn.innerHTML = `${icons.clearTrash}<span>${i18n.t('sandbox.clear')}</span>`;
     }
     const resetBtn = document.getElementById('sb-btn-reset-start');
     if (resetBtn) {
       resetBtn.title = i18n.t('sandbox.startingPos');
       resetBtn.innerHTML = `${icons.chessKnight}<span>${i18n.t('sandbox.startingPos')}</span>`;
-    }
-    const emptyBtn = document.getElementById('sb-btn-empty');
-    if (emptyBtn) {
-      emptyBtn.title = i18n.t('sandbox.emptyBoard');
-      emptyBtn.innerHTML = `${icons.emptyBoard}<span>${i18n.t('sandbox.emptyBoard')}</span>`;
     }
     const eraserBtn = document.getElementById('tool-eraser');
     if (eraserBtn) {
@@ -280,12 +275,8 @@ export class SandboxGame {
                 ${icons.chessKnight}
                 <span>${i18n.t('sandbox.startingPos')}</span>
               </button>
-              <button class="toolbar-btn" id="sb-btn-empty" title="${i18n.t('sandbox.emptyBoard')}">
-                ${icons.emptyBoard}
-                <span>${i18n.t('sandbox.emptyBoard')}</span>
-              </button>
               <button class="toolbar-btn danger" id="sb-btn-clear" title="${i18n.t('sandbox.clear')}">
-                ${icons.trash}
+                ${icons.clearTrash}
                 <span>${i18n.t('sandbox.clear')}</span>
               </button>
             </div>
@@ -447,10 +438,6 @@ export class SandboxGame {
 
     document.getElementById('sb-btn-reset-start')?.addEventListener('click', () => {
       this.loadFenInternal(STARTING_FEN, true);
-    });
-
-    document.getElementById('sb-btn-empty')?.addEventListener('click', () => {
-      this.loadFenInternal(EMPTY_FEN, true);
     });
 
     document.getElementById('sb-btn-clear')?.addEventListener('click', () => {
