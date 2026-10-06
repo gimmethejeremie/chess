@@ -388,6 +388,8 @@ export class SandboxGame {
       boardTheme: state.boardTheme,
       showCoordinates: state.showCoordinates,
       interactive: true,
+      drawMode: this.activeTool === 'arrow' ? 'arrow' : null,
+      clearAnnotationsOnLeftClick: false,
 
       onSquareClick: ({ square, piece }) => {
         this.handleSquareClick(square, piece);
@@ -610,9 +612,18 @@ export class SandboxGame {
 
     document.getElementById('tool-eraser')?.classList.toggle('active', tool === 'eraser');
     document.getElementById('tool-arrow')?.classList.toggle('active', tool === 'arrow');
+
+    if (this.board) {
+      this.board.setDrawMode(tool === 'arrow' ? 'arrow' : null);
+    }
   }
 
   handleSquareClick(square, existingPiece) {
+    // If Arrow tool is active: drawing is handled directly by board annotation gesture
+    if (this.activeTool === 'arrow') {
+      return;
+    }
+
     // If Eraser tool is active: delete piece
     if (this.activeTool === 'eraser') {
       if (existingPiece) {
@@ -622,7 +633,7 @@ export class SandboxGame {
     }
 
     // If a piece brush is active: place it
-    if (this.activeTool && this.activeTool !== 'arrow') {
+    if (this.activeTool) {
       this.placePiece(square, this.activeTool);
       return;
     }
@@ -640,6 +651,10 @@ export class SandboxGame {
   }
 
   handleFreeDrop(fromSquare, toSquare, piece) {
+    if (this.activeTool === 'arrow') {
+      return;
+    }
+
     // Dragged OFF the board -> delete the piece
     if (!toSquare) {
       this.removePiece(fromSquare);

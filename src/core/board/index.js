@@ -76,6 +76,8 @@ export class BoardRenderer {
     this.boardTheme = options.boardTheme || 'classic';
     this.showCoordinates = options.showCoordinates !== undefined ? options.showCoordinates : true;
     this.interactive = options.interactive !== undefined ? options.interactive : true;
+    this.drawMode = options.drawMode || null; // null | 'arrow'
+    this.clearAnnotationsOnLeftClick = options.clearAnnotationsOnLeftClick ?? false;
 
     this.callbacks = {
       onSquareClick: options.onSquareClick || (() => {}),
@@ -91,10 +93,10 @@ export class BoardRenderer {
       lastMove: null, // { from: 'e2', to: 'e4' } or ['e2', 'e4']
       check: null,    // square of king in check
       legalMoves: [], // array of square strings or { square: 'e4', isCapture: true }
-      markedSquares: new Set() // squares marked via right-click
+      markedSquares: new Map() // square -> color
     };
 
-    // Arrows state: [{ from: 'e2', to: 'e4', color: '#f59e0b' }]
+    // Arrows state: [{ from: 'e2', to: 'e4', color: '#f59e0b', markerId: 'arrowhead-default' }]
     this.arrows = [];
 
     // Internal position Map: square -> 'wP'
@@ -103,7 +105,7 @@ export class BoardRenderer {
       this.setPosition(options.position, false);
     }
 
-    // Drag-and-drop state (primary pointer)
+    // Drag-and-drop state (primary pointer for piece moves)
     this.dragState = {
       active: false,
       pointerId: null,
@@ -115,12 +117,16 @@ export class BoardRenderer {
       sourcePieceEl: null
     };
 
-    // Right-click drag state (secondary pointer)
-    this.rightClickState = {
+    // Annotation / Arrow drawing gesture state (right-click, Shift+click, or drawMode === 'arrow')
+    this.annotationState = {
       active: false,
       pointerId: null,
-      fromSquare: null
+      fromSquare: null,
+      currentSquare: null,
+      color: 'rgba(245, 158, 11, 0.9)',
+      markerId: 'arrowhead-default'
     };
+    this.rightClickState = this.annotationState; // backward compatibility
 
     // Long press timer for touch devices
     this.longPressTimer = null;
@@ -368,6 +374,21 @@ export class BoardRenderer {
     this.renderBoard();
   }
 
+  /**
+   * Set drawing mode (e.g. 'arrow' or null)
+   * @param {string|null} mode
+   */
+  setDrawMode(mode) {
+    this.drawMode = mode;
+    if (this.boardElement) {
+      if (mode === 'arrow') {
+        this.boardElement.classList.add('draw-mode-arrow');
+      } else {
+        this.boardElement.classList.remove('draw-mode-arrow');
+      }
+    }
+  }
+
   setHighlights(highlights = {}) {
     this.highlights = {
       ...this.highlights,
@@ -397,6 +418,7 @@ export class BoardRenderer {
         'highlight-check',
         'highlight-marked'
       );
+      squareEl.style.removeProperty('--marked-color');
       const hints = squareEl.querySelectorAll('.legal-move-hint');
       hints.forEach((h) => h.remove());
     }
@@ -421,9 +443,22 @@ export class BoardRenderer {
       if (el) el.classList.add('highlight-check');
     }
 
-    for (const sq of this.highlights.markedSquares) {
-      const el = this.squareElements.get(sq);
-      if (el) el.classList.add('highlight-marked');
+    // Support both Map (square -> color) and Set (square)
+    if (this.highlights.markedSquares instanceof Map) {
+      for (const [sq, color] of this.highlights.markedSquares.entries()) {
+        const el = this.squareElements.get(sq);
+        if (el) {
+          el.classList.add('highlight-marked');
+          if (color) {
+            el.style.setProperty('--marked-color', color);
+          }
+        }
+      }
+    } else if (this.highlights.markedSquares instanceof Set) {
+      for (const sq of this.highlights.markedSquares) {
+        const el = this.squareElements.get(sq);
+        if (el) el.classList.add('highlight-marked');
+      }
     }
 
     if (Array.isArray(this.highlights.legalMoves)) {
@@ -466,14 +501,30 @@ export class BoardRenderer {
     };
   }
 
-  addArrow(from, to, color = 'rgba(245, 158, 11, 0.9)') {
+  addArrow(from, to, color = 'rgba(245, 158, 11, 0.9)', markerId = null) {
     if (!from || !to || from === to) return;
-    // Check if arrow already exists
+
+    if (!markerId) {
+      if (color.includes('34, 197, 94') || color.includes('green')) {
+        markerId = 'arrowhead-green';
+      } else if (color.includes('239, 68, 68') || color.includes('red')) {
+        markerId = 'arrowhead-red';
+      } else if (color.includes('59, 130, 246') || color.includes('blue')) {
+        markerId = 'arrowhead-blue';
+      } else {
+        markerId = 'arrowhead-default';
+      }
+    }
+
     const idx = this.arrows.findIndex((a) => a.from === from && a.to === to);
     if (idx !== -1) {
-      this.arrows.splice(idx, 1);
+      if (this.arrows[idx].color === color) {
+        this.arrows.splice(idx, 1);
+      } else {
+        this.arrows[idx] = { from, to, color, markerId };
+      }
     } else {
-      this.arrows.push({ from, to, color });
+      this.arrows.push({ from, to, color, markerId });
     }
     this.renderArrows();
   }
@@ -483,39 +534,94 @@ export class BoardRenderer {
     this.renderArrows();
   }
 
-  renderArrows() {
+  renderArrows(previewArrow = null) {
     if (!this.arrowOverlay) return;
     const group = this.arrowOverlay.querySelector('#arrows-group');
     if (!group) return;
 
     group.innerHTML = '';
 
-    for (const arr of this.arrows) {
+    const arrowList = [...this.arrows];
+    if (previewArrow && previewArrow.from && previewArrow.to && previewArrow.from !== previewArrow.to) {
+      arrowList.push(previewArrow);
+    }
+
+    for (const arr of arrowList) {
       const p1 = this.getSquareCenterCoords(arr.from);
       const p2 = this.getSquareCenterCoords(arr.to);
       if (!p1 || !p2) continue;
 
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      const len = Math.hypot(dx, dy);
-      if (len === 0) continue;
+      const file1 = arr.from.charCodeAt(0) - 97;
+      const rank1 = parseInt(arr.from[1], 10) - 1;
+      const file2 = arr.to.charCodeAt(0) - 97;
+      const rank2 = parseInt(arr.to[1], 10) - 1;
 
-      // Shorten line slightly so arrow head sits at the target square center
-      const shorten = 3.2;
-      const endX = p2.x - (dx / len) * shorten;
-      const endY = p2.y - (dy / len) * shorten;
+      const dFile = Math.abs(file2 - file1);
+      const dRank = Math.abs(rank2 - rank1);
+      const isKnightMove = (dFile === 1 && dRank === 2) || (dFile === 2 && dRank === 1);
 
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', p1.x);
-      line.setAttribute('y1', p1.y);
-      line.setAttribute('x2', endX);
-      line.setAttribute('y2', endY);
-      line.setAttribute('stroke', arr.color || 'rgba(245, 158, 11, 0.9)');
-      line.setAttribute('stroke-width', '2.2');
-      line.setAttribute('stroke-linecap', 'round');
-      line.setAttribute('marker-end', 'url(#arrowhead-default)');
+      const color = arr.color || 'rgba(245, 158, 11, 0.9)';
+      const markerId = arr.markerId || (
+        color.includes('34, 197, 94') || color.includes('green') ? 'arrowhead-green' :
+        color.includes('239, 68, 68') || color.includes('red') ? 'arrowhead-red' :
+        color.includes('59, 130, 246') || color.includes('blue') ? 'arrowhead-blue' :
+        'arrowhead-default'
+      );
 
-      group.appendChild(line);
+      if (isKnightMove) {
+        // L-shaped knight arrow (Chess.com / Lichess style)
+        let elbowSquare;
+        if (dRank === 2) {
+          elbowSquare = `${arr.from[0]}${arr.to[1]}`;
+        } else {
+          elbowSquare = `${arr.to[0]}${arr.from[1]}`;
+        }
+        const elbow = this.getSquareCenterCoords(elbowSquare);
+        if (!elbow) continue;
+
+        const dx = p2.x - elbow.x;
+        const dy = p2.y - elbow.y;
+        const len = Math.hypot(dx, dy);
+        const shorten = 3.2;
+        const endX = len > shorten ? p2.x - (dx / len) * shorten : p2.x;
+        const endY = len > shorten ? p2.y - (dy / len) * shorten : p2.y;
+
+        const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        polyline.setAttribute('points', `${p1.x},${p1.y} ${elbow.x},${elbow.y} ${endX},${endY}`);
+        polyline.setAttribute('fill', 'none');
+        polyline.setAttribute('stroke', color);
+        polyline.setAttribute('stroke-width', '2.2');
+        polyline.setAttribute('stroke-linecap', 'round');
+        polyline.setAttribute('stroke-linejoin', 'round');
+        polyline.setAttribute('marker-end', `url(#${markerId})`);
+        if (arr.opacity) {
+          polyline.setAttribute('opacity', arr.opacity);
+        }
+        group.appendChild(polyline);
+      } else {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+        if (len === 0) continue;
+
+        const shorten = 3.2;
+        const endX = len > shorten ? p2.x - (dx / len) * shorten : p2.x;
+        const endY = len > shorten ? p2.y - (dy / len) * shorten : p2.y;
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', p1.x);
+        line.setAttribute('y1', p1.y);
+        line.setAttribute('x2', endX);
+        line.setAttribute('y2', endY);
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', '2.2');
+        line.setAttribute('stroke-linecap', 'round');
+        line.setAttribute('marker-end', `url(#${markerId})`);
+        if (arr.opacity) {
+          line.setAttribute('opacity', arr.opacity);
+        }
+        group.appendChild(line);
+      }
     }
   }
 
@@ -549,22 +655,59 @@ export class BoardRenderer {
   handlePointerDown(e) {
     if (!this.interactive) return;
 
-    // Right-click handling (Secondary button: 2) -> Arrow / Mark gesture
-    if (e.button === 2) {
+    // Annotation gestures:
+    // 1. Right-click (e.button === 2)
+    // 2. Shift + Left-click or Shift + Right-click (e.shiftKey) - Chess.com style
+    // 3. Left-click when drawMode === 'arrow'
+    const isRightClick = e.button === 2;
+    const isShiftClick = (e.button === 0 || e.button === 2) && e.shiftKey;
+    const isArrowMode = e.button === 0 && this.drawMode === 'arrow';
+
+    if (isRightClick || isShiftClick || isArrowMode) {
       e.preventDefault();
       const square = this.getSquareFromPoint(e.clientX, e.clientY);
       if (square) {
-        this.rightClickState.active = true;
-        this.rightClickState.pointerId = e.pointerId;
-        this.rightClickState.fromSquare = square;
+        let color = 'rgba(245, 158, 11, 0.9)'; // Amber default
+        let markerId = 'arrowhead-default';
+
+        if (e.altKey) {
+          color = 'rgba(239, 68, 68, 0.9)'; // Red
+          markerId = 'arrowhead-red';
+        } else if (e.ctrlKey || e.metaKey) {
+          color = 'rgba(59, 130, 246, 0.9)'; // Blue
+          markerId = 'arrowhead-blue';
+        } else if (e.shiftKey) {
+          color = 'rgba(34, 197, 94, 0.9)'; // Green
+          markerId = 'arrowhead-green';
+        }
+
+        this.annotationState.active = true;
+        this.annotationState.pointerId = e.pointerId;
+        this.annotationState.fromSquare = square;
+        this.annotationState.currentSquare = square;
+        this.annotationState.color = color;
+        this.annotationState.markerId = markerId;
+
+        try {
+          this.boardElement.setPointerCapture(e.pointerId);
+        } catch (err) {}
       }
       return;
     }
 
-    // Only primary pointer button (left-click or touch)
+    // Only primary pointer button (left-click or touch) for piece movement
     if (e.button !== 0) return;
 
     e.preventDefault();
+
+    // Clear annotations on standard left-click if option enabled
+    if (
+      this.clearAnnotationsOnLeftClick &&
+      (this.arrows.length > 0 || this.highlights.markedSquares.size > 0)
+    ) {
+      this.clearArrows();
+      this.clearMarkedSquares();
+    }
 
     const square = this.getSquareFromPoint(e.clientX, e.clientY);
     if (!square) return;
@@ -592,8 +735,24 @@ export class BoardRenderer {
   }
 
   handlePointerMove(e) {
-    // If right-click dragging, nothing special needed until up
-    if (this.rightClickState.active && this.rightClickState.pointerId === e.pointerId) {
+    // Annotation live preview while dragging
+    if (this.annotationState.active && this.annotationState.pointerId === e.pointerId) {
+      e.preventDefault();
+      const currentSquare = this.getSquareFromPoint(e.clientX, e.clientY);
+      if (currentSquare !== this.annotationState.currentSquare) {
+        this.annotationState.currentSquare = currentSquare;
+        if (currentSquare && currentSquare !== this.annotationState.fromSquare) {
+          this.renderArrows({
+            from: this.annotationState.fromSquare,
+            to: currentSquare,
+            color: this.annotationState.color,
+            markerId: this.annotationState.markerId,
+            opacity: '0.6'
+          });
+        } else {
+          this.renderArrows();
+        }
+      }
       return;
     }
 
@@ -658,35 +817,51 @@ export class BoardRenderer {
       this.longPressTimer = null;
     }
 
-    // Right-click gesture completed
-    if (this.rightClickState.active && this.rightClickState.pointerId === e.pointerId) {
-      const fromSquare = this.rightClickState.fromSquare;
+    // Annotation gesture completed
+    if (this.annotationState.active && this.annotationState.pointerId === e.pointerId) {
+      try {
+        this.boardElement.releasePointerCapture(e.pointerId);
+      } catch (err) {}
+
+      const { fromSquare, color, markerId } = this.annotationState;
       const toSquare = this.getSquareFromPoint(e.clientX, e.clientY);
 
-      this.rightClickState.active = false;
-      this.rightClickState.pointerId = null;
-      this.rightClickState.fromSquare = null;
+      this.annotationState.active = false;
+      this.annotationState.pointerId = null;
+      this.annotationState.fromSquare = null;
+      this.annotationState.currentSquare = null;
 
       if (fromSquare && toSquare) {
         if (fromSquare === toSquare) {
           // Toggle square highlight
+          const markColor = color.replace('0.9', '0.45');
           if (this.highlights.markedSquares.has(fromSquare)) {
-            this.highlights.markedSquares.delete(fromSquare);
+            const existing = this.highlights.markedSquares.get(fromSquare);
+            if (existing === markColor) {
+              this.highlights.markedSquares.delete(fromSquare);
+            } else {
+              this.highlights.markedSquares.set(fromSquare, markColor);
+            }
           } else {
-            this.highlights.markedSquares.add(fromSquare);
+            this.highlights.markedSquares.set(fromSquare, markColor);
           }
           this.applyHighlights();
         } else {
-          // Toggle arrow
-          this.addArrow(fromSquare, toSquare);
+          // Add or toggle arrow
+          this.addArrow(fromSquare, toSquare, color, markerId);
         }
 
-        this.callbacks.onRightClick({
-          fromSquare,
-          toSquare,
-          square: fromSquare,
-          event: e
-        });
+        if (this.callbacks.onRightClick) {
+          this.callbacks.onRightClick({
+            fromSquare,
+            toSquare,
+            square: fromSquare,
+            color,
+            event: e
+          });
+        }
+      } else {
+        this.renderArrows();
       }
       return;
     }
@@ -747,9 +922,15 @@ export class BoardRenderer {
       this.dragState.pointerId = null;
       this.dragState.active = false;
     }
-    if (this.rightClickState.pointerId === e.pointerId) {
-      this.rightClickState.active = false;
-      this.rightClickState.pointerId = null;
+    if (this.annotationState.pointerId === e.pointerId) {
+      try {
+        this.boardElement.releasePointerCapture(e.pointerId);
+      } catch (err) {}
+      this.annotationState.active = false;
+      this.annotationState.pointerId = null;
+      this.annotationState.fromSquare = null;
+      this.annotationState.currentSquare = null;
+      this.renderArrows();
     }
   }
 

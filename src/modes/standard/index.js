@@ -282,6 +282,7 @@ export class StandardChessGame {
       boardTheme: state.boardTheme,
       showCoordinates: state.showCoordinates,
       interactive: true,
+      clearAnnotationsOnLeftClick: true,
 
       onSquareClick: ({ square, piece }) => {
         this.handleSquareClick(square, piece);
@@ -446,6 +447,10 @@ export class StandardChessGame {
 
       // Clear redo stack on new user move
       this.undoneMoves = [];
+
+      // Clear annotations when move is made
+      this.board?.clearArrows();
+      this.board?.clearMarkedSquares();
 
       // Audio feedback
       if (this.chess.isCheck()) {
