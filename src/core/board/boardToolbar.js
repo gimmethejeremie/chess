@@ -108,7 +108,6 @@ export class BoardToolbar {
               aria-label="${i18n.t('standard.flip')}"
             >
               <span class="ctrl-icon">${icons.flip}</span>
-              <span class="ctrl-label">${i18n.t('demo.flip') || 'Xoay bàn'}</span>
             </button>
           `
               : ''
@@ -126,7 +125,6 @@ export class BoardToolbar {
               aria-pressed="${state.showCoordinates}"
             >
               <span class="ctrl-icon">${icons.coords}</span>
-              <span class="ctrl-label">${i18n.t('demo.coords') || 'Tọa độ'}</span>
             </button>
           `
               : ''
@@ -143,7 +141,6 @@ export class BoardToolbar {
               aria-label="${i18n.t('demo.reset')}"
             >
               <span class="ctrl-icon">${icons.reset}</span>
-              <span class="ctrl-label">${i18n.t('demo.reset') || 'Đặt lại'}</span>
             </button>
           `
               : ''
@@ -160,7 +157,6 @@ export class BoardToolbar {
               aria-label="${i18n.t('sandbox.clearAnnotations')}"
             >
               <span class="ctrl-icon">${icons.clearTrash}</span>
-              <span class="ctrl-label">${i18n.t('sandbox.clearAnnotations')}</span>
             </button>
           `
               : ''
@@ -178,7 +174,6 @@ export class BoardToolbar {
               aria-pressed="${this.isZen}"
             >
               <span class="ctrl-icon">${this.isZen ? icons.focusExit : icons.focusZen}</span>
-              <span class="ctrl-label">${i18n.t('demo.focus') || 'Focus'}</span>
             </button>
           `
               : ''

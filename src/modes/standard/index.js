@@ -78,7 +78,8 @@ export class StandardChessGame {
         showThemes: true,
         showCoords: true,
         showZen: true,
-        showClearArrows: true
+        showClearArrows: true,
+        onFlip: () => this.handleFlip()
       });
     }
 
@@ -91,10 +92,6 @@ export class StandardChessGame {
       }
       if (this.boardToolbar) {
         this.boardToolbar.updateState();
-      }
-      const coordsBtn = document.getElementById('std-action-coords');
-      if (coordsBtn) {
-        coordsBtn.classList.toggle('active', state.showCoordinates);
       }
     });
 
@@ -162,12 +159,6 @@ export class StandardChessGame {
 
     const newBtn = document.getElementById('std-action-new');
     if (newBtn) newBtn.innerHTML = `${icons.reset}<span>${i18n.t('standard.newGame')}</span>`;
-
-    const flipBtn = document.getElementById('std-action-flip');
-    if (flipBtn) flipBtn.innerHTML = `${icons.flip}<span>${i18n.t('standard.flip')}</span>`;
-
-    const coordsBtn = document.getElementById('std-action-coords');
-    if (coordsBtn) coordsBtn.innerHTML = `${icons.coords}<span>${i18n.t('demo.coords') || 'Tọa độ'}</span>`;
 
     const drawBtn = document.getElementById('std-action-draw');
     if (drawBtn) drawBtn.innerHTML = `${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span>`;
@@ -246,6 +237,7 @@ export class StandardChessGame {
             </div>
 
             <!-- History Navigation Buttons -->
+            <!-- History & Move Navigation Bar (Single clean row) -->
             <div class="history-nav-toolbar">
               <div class="history-step-group" role="group" aria-label="Move History Navigation">
                 <button class="nav-btn" id="std-nav-first" title="First move" aria-label="First move">${icons.first}</button>
@@ -253,21 +245,19 @@ export class StandardChessGame {
                 <button class="nav-btn" id="std-nav-next" title="Next move (Right arrow)" aria-label="Next move">${icons.next}</button>
                 <button class="nav-btn" id="std-nav-last" title="Latest move" aria-label="Latest move">${icons.last}</button>
               </div>
+              <div class="history-nav-separator"></div>
               <div class="history-undo-group" role="group" aria-label="Undo and Redo">
                 <button class="nav-btn" id="std-btn-undo" title="${i18n.t('standard.undo')}" aria-label="${i18n.t('standard.undo')}">${icons.undo}<span>${i18n.t('standard.undo')}</span></button>
                 <button class="nav-btn" id="std-btn-redo" title="${i18n.t('standard.redo')}" aria-label="${i18n.t('standard.redo')}">${icons.redo}<span>${i18n.t('standard.redo')}</span></button>
               </div>
             </div>
 
-            <!-- Game Actions Toolbar -->
+            <!-- Game Actions Grid (Balanced 2x2 grid, NO duplicates) -->
             <div class="game-actions-panel">
               <button class="action-btn" id="std-action-new">${icons.reset}<span>${i18n.t('standard.newGame')}</span></button>
-              <button class="action-btn" id="std-action-flip">${icons.flip}<span>${i18n.t('standard.flip')}</span></button>
-              <button class="action-btn ${store.getState().showCoordinates ? 'active' : ''}" id="std-action-coords">${icons.coords}<span>${i18n.t('demo.coords') || 'Tọa độ'}</span></button>
-              <button class="action-btn" id="std-action-clear-arrows">${icons.clearTrash}<span>${i18n.t('standard.clearAnnotations')}</span></button>
+              <button class="action-btn" id="std-action-pgn">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
               <button class="action-btn" id="std-action-draw">${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span></button>
               <button class="action-btn danger" id="std-action-resign">${icons.flag}<span>${i18n.t('standard.resign')}</span></button>
-              <button class="action-btn" id="std-action-pgn">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
             </div>
           </aside>
         </div>
@@ -351,25 +341,9 @@ export class StandardChessGame {
 
     // Game Actions
     document.getElementById('std-action-new')?.addEventListener('click', () => this.promptNewGame());
-    document.getElementById('std-action-flip')?.addEventListener('click', () => this.handleFlip());
-    document.getElementById('std-action-coords')?.addEventListener('click', () => {
-      const next = store.toggleCoordinates();
-      this.board?.setShowCoordinates(next);
-      if (this.boardToolbar) {
-        this.boardToolbar.updateState();
-      }
-      const coordsBtn = document.getElementById('std-action-coords');
-      if (coordsBtn) {
-        coordsBtn.classList.toggle('active', next);
-      }
-    });
-    document.getElementById('std-action-clear-arrows')?.addEventListener('click', () => {
-      this.board?.clearArrows();
-      this.board?.clearMarkedSquares();
-    });
-    document.getElementById('std-action-resign')?.addEventListener('click', () => this.promptResign());
-    document.getElementById('std-action-draw')?.addEventListener('click', () => this.promptDrawOffer());
     document.getElementById('std-action-pgn')?.addEventListener('click', () => this.openPgnFenModal());
+    document.getElementById('std-action-draw')?.addEventListener('click', () => this.promptDrawOffer());
+    document.getElementById('std-action-resign')?.addEventListener('click', () => this.promptResign());
   }
 
   /* ========================================================================

@@ -191,16 +191,41 @@
 
 /* Board Action Toolbar */
 .sandbox-board-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.5rem;
   width: 100%;
+  margin-top: 0.5rem;
 }
 
 .sandbox-board-actions .toolbar-btn {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.45rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.sandbox-board-actions .toolbar-btn:hover {
+  background-color: var(--border-color);
+}
+
+.sandbox-board-actions .toolbar-btn.danger {
+  color: #ef4444;
+}
+
+.sandbox-board-actions .toolbar-btn.danger:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
 }
 
 .sandbox-board-actions .toolbar-btn svg {

@@ -92,6 +92,7 @@ export class SandboxGame {
         showThemes: true,
         showCoords: true,
         showReset: false,
+        showClearArrows: true,
         showZen: true
       });
     }
@@ -105,10 +106,6 @@ export class SandboxGame {
       }
       if (this.boardToolbar) {
         this.boardToolbar.updateState();
-      }
-      const coordsBtn = document.getElementById('sb-btn-coords');
-      if (coordsBtn) {
-        coordsBtn.classList.toggle('active', state.showCoordinates);
       }
       this.renderPaletteIcons();
     });
@@ -168,16 +165,7 @@ export class SandboxGame {
       resetBtn.title = i18n.t('sandbox.startingPos');
       resetBtn.innerHTML = `${icons.chessKnight}<span>${i18n.t('sandbox.startingPos')}</span>`;
     }
-    const flipBtn = document.getElementById('sb-btn-flip');
-    if (flipBtn) {
-      flipBtn.title = i18n.t('standard.flip');
-      flipBtn.innerHTML = `${icons.flip}<span>${i18n.t('demo.flip') || 'Xoay bàn'}</span>`;
-    }
-    const coordsBtn = document.getElementById('sb-btn-coords');
-    if (coordsBtn) {
-      coordsBtn.title = i18n.t('demo.coords') || 'Tọa độ';
-      coordsBtn.innerHTML = `${icons.coords}<span>${i18n.t('demo.coords') || 'Tọa độ'}</span>`;
-    }
+
     const eraserBtn = document.getElementById('tool-eraser');
     if (eraserBtn) {
       eraserBtn.title = i18n.t('sandbox.eraser');
@@ -286,14 +274,6 @@ export class SandboxGame {
 
             <!-- Board Quick Action Toolbar -->
             <div class="sandbox-board-actions">
-              <button class="toolbar-btn" id="sb-btn-flip" title="${i18n.t('standard.flip')}">
-                ${icons.flip}
-                <span>${i18n.t('demo.flip') || 'Xoay bàn'}</span>
-              </button>
-              <button class="toolbar-btn ${store.getState().showCoordinates ? 'active' : ''}" id="sb-btn-coords" title="${i18n.t('demo.coords') || 'Tọa độ'}">
-                ${icons.coords}
-                <span>${i18n.t('demo.coords') || 'Tọa độ'}</span>
-              </button>
               <button class="toolbar-btn" id="sb-btn-reset-start" title="${i18n.t('sandbox.startingPos')}">
                 ${icons.chessKnight}
                 <span>${i18n.t('sandbox.startingPos')}</span>
@@ -450,19 +430,6 @@ export class SandboxGame {
     this.attachPaletteEvents();
 
     // Board quick actions
-    document.getElementById('sb-btn-flip')?.addEventListener('click', () => {
-      this.board?.flip();
-    });
-
-    const coordsBtn = document.getElementById('sb-btn-coords');
-    coordsBtn?.addEventListener('click', () => {
-      const show = store.toggleCoordinates();
-      this.board?.setShowCoordinates(show);
-      if (this.boardToolbar) {
-        this.boardToolbar.updateState();
-      }
-      coordsBtn.classList.toggle('active', show);
-    });
 
     document.getElementById('sb-btn-reset-start')?.addEventListener('click', () => {
       this.loadFenInternal(STARTING_FEN, true);
