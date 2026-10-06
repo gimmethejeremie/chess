@@ -117,4 +117,37 @@ describe('Standard Mode - Legal Rules Engine Verification', () => {
     expect(chess.history().length).toBe(2);
     expect(chess.turn()).toBe('w');
   });
+
+  it('detects chess openings dynamically as moves are played', async () => {
+    const { identifyOpening, formatOpeningLabel } = await import('../src/core/engine/openings.js');
+
+    // 1. e4 e5 2. Nf3 Nc6 3. Bc4 -> Italian Game
+    chess.move('e4');
+    chess.move('e5');
+    chess.move('Nf3');
+    chess.move('Nc6');
+    chess.move('Bc4');
+
+    const opening = identifyOpening(chess.history());
+    expect(opening).not.toBeNull();
+    expect(opening.eco).toBe('C50');
+    expect(opening.name).toBe('Italian Game');
+    expect(formatOpeningLabel(opening, 'vi')).toBe('C50 · Khai cuộc Ý');
+  });
+
+  it('computes static position evaluation correctly for opening and tactical situations', async () => {
+    const { evaluateBoard } = await import('../src/core/engine/ai.js');
+
+    // Starting position evaluation is ~0 (symmetric)
+    const startScore = evaluateBoard(chess);
+    expect(Math.abs(startScore)).toBeLessThan(50);
+
+    // After White captures a free queen: White has huge material advantage
+    chess.load('rnb1kbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1');
+    const normalScore = evaluateBoard(chess);
+    chess.load('rnb1kbnr/pppp1ppp/8/8/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 1');
+    const blackDownPawn = evaluateBoard(chess);
+    expect(blackDownPawn).toBeGreaterThan(normalScore);
+  });
 });
+

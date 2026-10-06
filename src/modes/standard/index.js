@@ -2,14 +2,16 @@
  * Mode 1: Standard Chess (Rule-enforced)
  * Full legal chess implementation using chess.js and shared BoardRenderer.
  * Features:
+ * - AI Chess Engine Bot with 3 difficulty levels (Beginner, Intermediate, Master)
+ * - Anti-drift Chess Clock with Blitz & Rapid presets and flag timeout detection
+ * - Automatic ECO Opening recognition with Vietnamese & English book definitions
+ * - Real-time Evaluation Bar showing position advantage and centipawn score
  * - Castling, en passant, promotion with piece-choice dialog
  * - Check, checkmate, stalemate, 3-fold repetition, 50-move rule, insufficient material
  * - Click-to-move & drag-and-drop with legal hints and sound effects
  * - SAN move list with review mode (click move to inspect past position)
  * - Navigation: |<<, <, >, >>, Undo, Redo
- * - Actions: New Game, Flip, Resign, Offer Draw
- * - PGN / FEN Import and Export
- * - Game-Over Dialog with result and reason
+ * - Actions: New Game Setup, Flip, Resign, Offer Draw, PGN / FEN Import/Export
  */
 
 import { Chess } from 'chess.js';
@@ -20,6 +22,10 @@ import { soundManager } from '../../core/sounds/index.js';
 import { store } from '../../core/store/index.js';
 import { router } from '../../core/router/index.js';
 import { i18n } from '../../core/i18n/index.js';
+import { getBestMove, evaluateBoard } from '../../core/engine/ai.js';
+import { identifyOpening } from '../../core/engine/openings.js';
+import { EvaluationBar } from '../../core/engine/evalBar.js';
+import { ChessClock } from '../../core/clock/index.js';
 import './standard.css';
 
 const BASE_URL = import.meta.env?.BASE_URL || '/';
@@ -33,7 +39,16 @@ export class StandardChessGame {
     this.chess = new Chess();
     this.board = null;
     this.boardToolbar = null;
+    this.evalBar = null;
+    this.clock = null;
     this.keyHandler = null;
+
+    // Game Mode & Match Setup
+    this.gameMode = 'bot'; // 'bot' | 'pass'
+    this.botLevel = 2; // 1 | 2 | 3
+    this.playerColor = 'w'; // 'w' | 'b'
+    this.timeControl = '5+0'; // 'unlimited' | '3+2' | '5+0' | '10+0'
+    this.aiTimeoutId = null;
 
     // History snapshots for review: [{ index: 0, fen: '', san: '', lastMove: null }]
     this.historySnapshots = [
@@ -59,15 +74,26 @@ export class StandardChessGame {
     this.gameOverReason = '';
     this.gameOverResult = '';
 
-    // Active unsubscriber
+    // Active unsubscribers
     this.storeUnsub = null;
     this.i18nUnsub = null;
+    this.clockUnsubTick = null;
+    this.clockUnsubTimeout = null;
   }
 
   mount() {
     this.renderLayout();
     this.initBoard();
-    this.updateUI();
+
+    // Mount Evaluation Bar
+    const evalMount = document.getElementById('std-eval-mount');
+    if (evalMount) {
+      this.evalBar = new EvaluationBar(evalMount, {
+        orientation: this.playerColor === 'b' ? 'black' : 'white',
+        visible: true
+      });
+      this.evalBar.update(0);
+    }
 
     // Mount BoardToolbar
     const toolbarMount = document.getElementById('std-board-toolbar');
@@ -79,9 +105,24 @@ export class StandardChessGame {
         showCoords: true,
         showZen: true,
         showClearArrows: true,
-        onFlip: () => this.handleFlip()
+        showEvalBar: true,
+        isEvalVisible: true,
+        onFlip: () => this.handleFlip(),
+        onEvalToggle: (visible) => {
+          if (this.evalBar) {
+            this.evalBar.setVisible(visible);
+          }
+        }
       });
     }
+
+    // Initialize Match Clock
+    this.initClock();
+
+    // Initial UI synchronization
+    this.updateUI();
+    this.updateOpeningDisplay();
+    this.updateEvalBar();
 
     // Subscribe to store updates for pieceSet, boardTheme, coordinates
     this.storeUnsub = store.subscribe((state) => {
@@ -99,9 +140,18 @@ export class StandardChessGame {
     this.i18nUnsub = i18n.subscribe(() => {
       this.updateI18n();
     });
+
+    // If bot game and player chose Black, Bot (White) makes move 1!
+    if (this.gameMode === 'bot' && this.playerColor === 'b') {
+      this.scheduleAiMove();
+    }
   }
 
   destroy() {
+    if (this.aiTimeoutId) {
+      clearTimeout(this.aiTimeoutId);
+      this.aiTimeoutId = null;
+    }
     if (this.keyHandler) {
       window.removeEventListener('keydown', this.keyHandler);
       this.keyHandler = null;
@@ -114,6 +164,22 @@ export class StandardChessGame {
       this.i18nUnsub();
       this.i18nUnsub = null;
     }
+    if (this.clockUnsubTick) {
+      this.clockUnsubTick();
+      this.clockUnsubTick = null;
+    }
+    if (this.clockUnsubTimeout) {
+      this.clockUnsubTimeout();
+      this.clockUnsubTimeout = null;
+    }
+    if (this.clock) {
+      this.clock.destroy();
+      this.clock = null;
+    }
+    if (this.evalBar) {
+      this.evalBar.destroy();
+      this.evalBar = null;
+    }
     if (this.boardToolbar) {
       this.boardToolbar.destroy();
       this.boardToolbar = null;
@@ -125,6 +191,150 @@ export class StandardChessGame {
     this.container.innerHTML = '';
   }
 
+  /* ========================================================================
+     Clock Integration
+     ======================================================================== */
+
+  initClock() {
+    if (this.clockUnsubTick) {
+      this.clockUnsubTick();
+      this.clockUnsubTick = null;
+    }
+    if (this.clockUnsubTimeout) {
+      this.clockUnsubTimeout();
+      this.clockUnsubTimeout = null;
+    }
+    if (this.clock) {
+      this.clock.destroy();
+      this.clock = null;
+    }
+
+    const topClockEl = document.getElementById('std-top-clock');
+    const bottomClockEl = document.getElementById('std-bottom-clock');
+
+    if (this.timeControl === 'unlimited') {
+      if (topClockEl) topClockEl.style.display = 'none';
+      if (bottomClockEl) bottomClockEl.style.display = 'none';
+      return;
+    }
+
+    let initialTimeMs = 300000;
+    let incrementMs = 0;
+
+    switch (this.timeControl) {
+      case '3+2':
+        initialTimeMs = 180000;
+        incrementMs = 2000;
+        break;
+      case '5+0':
+        initialTimeMs = 300000;
+        incrementMs = 0;
+        break;
+      case '10+0':
+        initialTimeMs = 600000;
+        incrementMs = 0;
+        break;
+      default:
+        initialTimeMs = 300000;
+        incrementMs = 0;
+    }
+
+    this.clock = new ChessClock({
+      initialTimeMs,
+      incrementMs,
+      incrementType: 'fischer'
+    });
+
+    if (topClockEl) {
+      topClockEl.style.display = 'inline-flex';
+      topClockEl.textContent = ChessClock.formatTime(initialTimeMs);
+    }
+    if (bottomClockEl) {
+      bottomClockEl.style.display = 'inline-flex';
+      bottomClockEl.textContent = ChessClock.formatTime(initialTimeMs);
+    }
+
+    this.clockUnsubTick = this.clock.onTick(({ whiteMs, blackMs, activeColor }) => {
+      this.updateClockDisplay(whiteMs, blackMs, activeColor);
+    });
+
+    this.clockUnsubTimeout = this.clock.onTimeout(({ flaggedColor, winnerColor }) => {
+      const isWhiteWon = winnerColor === 'w';
+      const winnerText = isWhiteWon ? i18n.t('standard.whiteWon') : i18n.t('standard.blackWon');
+      const template = i18n.t('standard.timeoutWin') || '{winner} thắng do đối phương hết giờ!';
+      const reasonText = template.replace('{winner}', winnerText);
+
+      this.endGame({
+        result: isWhiteWon ? '1 - 0' : '0 - 1',
+        title: `${winnerText}!`,
+        reason: reasonText
+      });
+    });
+  }
+
+  updateClockDisplay(whiteMs, blackMs, activeColor) {
+    const isWhiteOrientation = !this.board || this.board.orientation === 'white';
+    const topClockEl = document.getElementById('std-top-clock');
+    const bottomClockEl = document.getElementById('std-bottom-clock');
+
+    const topMs = isWhiteOrientation ? blackMs : whiteMs;
+    const bottomMs = isWhiteOrientation ? whiteMs : blackMs;
+    const topColor = isWhiteOrientation ? 'b' : 'w';
+    const bottomColor = isWhiteOrientation ? 'w' : 'b';
+
+    if (topClockEl) {
+      topClockEl.textContent = ChessClock.formatTime(topMs);
+      topClockEl.classList.toggle('active', activeColor === topColor && !this.isGameOver);
+      topClockEl.classList.toggle('low-time', topMs < 15000 && activeColor === topColor);
+    }
+
+    if (bottomClockEl) {
+      bottomClockEl.textContent = ChessClock.formatTime(bottomMs);
+      bottomClockEl.classList.toggle('active', activeColor === bottomColor && !this.isGameOver);
+      bottomClockEl.classList.toggle('low-time', bottomMs < 15000 && activeColor === bottomColor);
+    }
+  }
+
+  /* ========================================================================
+     Opening & Evaluation Updates
+     ======================================================================== */
+
+  updateOpeningDisplay() {
+    const openingStrip = document.getElementById('std-opening-strip');
+    const ecoEl = document.getElementById('std-opening-eco');
+    const nameEl = document.getElementById('std-opening-name');
+    if (!openingStrip || !ecoEl || !nameEl) return;
+
+    const currentChess = this.isLive()
+      ? this.chess
+      : new Chess(this.historySnapshots[this.reviewIndex].fen);
+
+    const history = currentChess.history();
+    const opening = identifyOpening(history);
+
+    if (opening && history.length > 0) {
+      openingStrip.style.display = 'flex';
+      ecoEl.textContent = opening.eco;
+      nameEl.textContent = (i18n.currentLang === 'vi' && opening.nameVi) ? opening.nameVi : opening.name;
+      openingStrip.title = `${opening.eco}: ${nameEl.textContent}`;
+    } else {
+      openingStrip.style.display = 'none';
+    }
+  }
+
+  updateEvalBar() {
+    if (!this.evalBar) return;
+    const activeChess = this.isLive()
+      ? this.chess
+      : new Chess(this.historySnapshots[this.reviewIndex].fen);
+    const score = evaluateBoard(activeChess);
+    this.evalBar.update(score);
+  }
+
+  /* ========================================================================
+     Localization & Rendering
+     ======================================================================== */
+
   updateI18n() {
     const backBtn = document.getElementById('std-back-home');
     if (backBtn) {
@@ -135,6 +345,8 @@ export class StandardChessGame {
     if (titleEl) titleEl.textContent = i18n.t('standard.title');
 
     this.updateStatus();
+    this.updatePlayerStrips();
+    this.updateOpeningDisplay();
 
     const resumeBtn = document.getElementById('std-btn-resume-live');
     if (resumeBtn) resumeBtn.textContent = `${i18n.t('standard.liveBtn')} »`;
@@ -192,23 +404,28 @@ export class StandardChessGame {
         <div class="standard-game-layout">
           <!-- Board Column -->
           <div class="standard-board-area">
-            <!-- Top Player Strip (Opponent / Black by default) -->
+            <!-- Top Player Strip (Opponent) -->
             <div class="player-strip" id="std-top-player-strip">
               <div class="player-tag">
                 <span class="player-indicator black" id="std-top-player-indicator"></span>
                 <span id="std-top-player-label">Black</span>
               </div>
+              <div class="player-clock-box" id="std-top-clock" style="display: none;">5:00</div>
             </div>
 
-            <!-- Board Mount Target -->
-            <div id="std-board-mount" style="width: 100%;"></div>
+            <!-- Board Mount Target with Evaluation Bar -->
+            <div class="board-with-eval-layout" style="width: 100%;">
+              <div class="std-eval-mount" id="std-eval-mount"></div>
+              <div id="std-board-mount" style="flex: 1; min-width: 0;"></div>
+            </div>
 
-            <!-- Bottom Player Strip (Self / White by default) -->
+            <!-- Bottom Player Strip (Self) -->
             <div class="player-strip active" id="std-bottom-player-strip">
               <div class="player-tag">
                 <span class="player-indicator white" id="std-bottom-player-indicator"></span>
                 <span id="std-bottom-player-label">White</span>
               </div>
+              <div class="player-clock-box" id="std-bottom-clock" style="display: none;">5:00</div>
             </div>
 
             <!-- Live Board Toolbar Component Mount -->
@@ -228,6 +445,12 @@ export class StandardChessGame {
               <span id="std-move-count" style="font-weight: 500; font-size: 0.8rem; color: var(--text-secondary);">0 moves</span>
             </div>
 
+            <!-- Opening Explorer Strip -->
+            <div class="opening-name-strip" id="std-opening-strip" style="display: none;">
+              <span class="opening-eco-badge" id="std-opening-eco">A00</span>
+              <span class="opening-name-text" id="std-opening-name">...</span>
+            </div>
+
             <!-- Scrollable Move List -->
             <div class="move-list-scroll" id="std-move-list-scroll">
               <div class="empty-moves-text" id="std-empty-moves">${i18n.t('standard.noMoves')}</div>
@@ -237,7 +460,6 @@ export class StandardChessGame {
             </div>
 
             <!-- History Navigation Buttons -->
-            <!-- History & Move Navigation Bar (Single clean row) -->
             <div class="history-nav-toolbar">
               <div class="history-step-group" role="group" aria-label="Move History Navigation">
                 <button class="nav-btn" id="std-nav-first" title="First move" aria-label="First move">${icons.first}</button>
@@ -252,7 +474,7 @@ export class StandardChessGame {
               </div>
             </div>
 
-            <!-- Game Actions Grid (Balanced 2x2 grid, NO duplicates) -->
+            <!-- Game Actions Grid -->
             <div class="game-actions-panel">
               <button class="action-btn" id="std-action-new">${icons.reset}<span>${i18n.t('standard.newGame')}</span></button>
               <button class="action-btn" id="std-action-pgn">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
@@ -275,10 +497,11 @@ export class StandardChessGame {
     if (!mountEl) return;
 
     const state = store.getState();
+    const initialOrientation = this.playerColor === 'b' ? 'black' : 'white';
 
     this.board = new BoardRenderer(mountEl, {
       position: this.chess.board(),
-      orientation: 'white',
+      orientation: initialOrientation,
       pieceSet: state.pieceSet,
       boardTheme: state.boardTheme,
       showCoordinates: state.showCoordinates,
@@ -357,6 +580,11 @@ export class StandardChessGame {
   handleSquareClick(square, piece) {
     if (this.isGameOver) return;
 
+    // In bot mode, ignore clicks when it's not player's turn
+    if (this.gameMode === 'bot' && this.chess.turn() !== this.playerColor) {
+      return;
+    }
+
     // If reviewing past position, jump back to live position first
     if (!this.isLive()) {
       this.jumpToHistory(this.historySnapshots.length - 1);
@@ -368,7 +596,7 @@ export class StandardChessGame {
     // If clicking friendly piece -> select and show legal moves
     if (pieceColor === currentTurn) {
       this.selectSquare(square);
-    } else if (this.board.highlights.selected) {
+    } else if (this.board && this.board.highlights.selected) {
       // If a friendly piece was already selected -> attempt move to clicked square
       const fromSquare = this.board.highlights.selected;
       this.attemptMove(fromSquare, square);
@@ -377,6 +605,10 @@ export class StandardChessGame {
 
   handleDragStart(square, piece) {
     if (this.isGameOver) return;
+
+    if (this.gameMode === 'bot' && this.chess.turn() !== this.playerColor) {
+      return;
+    }
 
     if (!this.isLive()) {
       this.jumpToHistory(this.historySnapshots.length - 1);
@@ -392,6 +624,11 @@ export class StandardChessGame {
 
   handleDrop(fromSquare, toSquare) {
     if (this.isGameOver) return;
+
+    if (this.gameMode === 'bot' && this.chess.turn() !== this.playerColor) {
+      return;
+    }
+
     this.attemptMove(fromSquare, toSquare);
   }
 
@@ -445,7 +682,7 @@ export class StandardChessGame {
       const move = this.chess.move(moveObj);
       if (!move) return;
 
-      // Clear redo stack on new user move
+      // Clear redo stack on new move
       this.undoneMoves = [];
 
       // Clear annotations when move is made
@@ -453,14 +690,14 @@ export class StandardChessGame {
       this.board?.clearMarkedSquares();
 
       // Audio feedback
-      if (this.chess.isCheck()) {
+      if (this.chess.isCheckmate() || this.chess.isGameOver()) {
+        soundManager.play('game-end');
+      } else if (this.chess.isCheck()) {
         soundManager.play('check');
       } else if (move.captured) {
         soundManager.play('capture');
       } else if (move.flags.includes('k') || move.flags.includes('q')) {
         soundManager.play('castle');
-      } else if (this.chess.isGameOver()) {
-        soundManager.play('game-end');
       } else {
         soundManager.play('move');
       }
@@ -488,11 +725,79 @@ export class StandardChessGame {
         check: checkSquare
       });
 
+      // Advance or start Clock
+      if (this.clock && !this.isGameOver) {
+        if (!this.clock.isRunning) {
+          this.clock.start(this.chess.turn());
+        } else {
+          this.clock.switchTurn();
+        }
+      }
+
       this.updateUI();
+      this.updateOpeningDisplay();
+      this.updateEvalBar();
       this.checkGameEndConditions();
+
+      // Trigger AI Move if playing against bot and it's bot's turn
+      if (!this.isGameOver && this.gameMode === 'bot') {
+        const botColor = this.playerColor === 'w' ? 'b' : 'w';
+        if (this.chess.turn() === botColor) {
+          this.scheduleAiMove();
+        }
+      }
     } catch (err) {
       console.warn('[StandardGame] Move failed:', err);
       this.board.clearHighlights();
+    }
+  }
+
+  /* ========================================================================
+     AI Chess Engine Bot Loop
+     ======================================================================== */
+
+  scheduleAiMove() {
+    if (this.isGameOver) return;
+    if (this.aiTimeoutId) {
+      clearTimeout(this.aiTimeoutId);
+      this.aiTimeoutId = null;
+    }
+
+    // Indicate bot thinking
+    const textEl = document.getElementById('std-turn-text');
+    if (textEl) {
+      textEl.textContent = i18n.t('standard.botThinking');
+    }
+
+    if (this.board) {
+      this.board.interactive = false;
+    }
+
+    // Natural human-like pause (450ms - 650ms)
+    this.aiTimeoutId = setTimeout(() => {
+      this.makeAiMove();
+    }, 450 + Math.random() * 200);
+  }
+
+  makeAiMove() {
+    this.aiTimeoutId = null;
+    if (this.isGameOver) return;
+
+    const botColor = this.playerColor === 'w' ? 'b' : 'w';
+    if (this.chess.turn() !== botColor) {
+      if (this.board) {
+        this.board.interactive = this.isLive() && !this.isGameOver;
+      }
+      return;
+    }
+
+    const bestMove = getBestMove(this.chess, this.botLevel);
+    if (bestMove) {
+      this.executeMove(bestMove);
+    }
+
+    if (this.board) {
+      this.board.interactive = this.isLive() && !this.isGameOver;
     }
   }
 
@@ -543,7 +848,7 @@ export class StandardChessGame {
 
     // Piece button selection
     mountEl.querySelectorAll('[data-promo-piece]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         const pieceType = btn.getAttribute('data-promo-piece');
         this.closeModals();
         if (this.pendingPromotion) {
@@ -607,7 +912,19 @@ export class StandardChessGame {
     this.gameOverResult = result;
     this.gameOverReason = `${title} (${reason})`;
 
+    if (this.clock) {
+      this.clock.pause();
+    }
+    if (this.aiTimeoutId) {
+      clearTimeout(this.aiTimeoutId);
+      this.aiTimeoutId = null;
+    }
+    if (this.board) {
+      this.board.interactive = false;
+    }
+
     soundManager.play('game-end');
+    this.updateUI();
     this.openGameOverDialog({ result, title, reason });
   }
 
@@ -639,7 +956,7 @@ export class StandardChessGame {
 
     document.getElementById('std-btn-new-game-dialog')?.addEventListener('click', () => {
       this.closeModals();
-      this.resetGame();
+      this.openNewGameModal();
     });
 
     document.getElementById('std-btn-review-board-dialog')?.addEventListener('click', () => {
@@ -661,7 +978,6 @@ export class StandardChessGame {
     const tempChess = new Chess(snapshot.fen);
     this.board.setPosition(tempChess.board());
 
-    // Highlight review state
     const isLive = this.isLive();
     const checkSquare = tempChess.isCheck()
       ? this.findKingSquare(tempChess.turn(), tempChess)
@@ -675,37 +991,73 @@ export class StandardChessGame {
     });
 
     // Make board interactive only if live and game not over
-    this.board.interactive = isLive && !this.isGameOver;
+    this.board.interactive = isLive && !this.isGameOver && (this.gameMode !== 'bot' || this.chess.turn() === this.playerColor);
 
     this.updateUI();
+    this.updateOpeningDisplay();
+    this.updateEvalBar();
+
+    // If jumping back to live and it's bot's turn, resume AI move
+    if (isLive && !this.isGameOver && this.gameMode === 'bot') {
+      const botColor = this.playerColor === 'w' ? 'b' : 'w';
+      if (this.chess.turn() === botColor && !this.aiTimeoutId) {
+        this.scheduleAiMove();
+      }
+    }
   }
 
   handleUndo() {
     if (this.historySnapshots.length <= 1) return;
 
-    // Undo from chess.js
-    const undone = this.chess.undo();
-    if (undone) {
-      this.undoneMoves.push(undone);
-      this.historySnapshots.pop();
-      this.reviewIndex = this.historySnapshots.length - 1;
-      this.isGameOver = false;
-
-      this.board.setPosition(this.chess.board());
-      const lastSnapshot = this.historySnapshots[this.historySnapshots.length - 1];
-      const checkSquare = this.chess.isCheck() ? this.findKingSquare(this.chess.turn()) : null;
-
-      this.board.setHighlights({
-        selected: null,
-        legalMoves: [],
-        lastMove: lastSnapshot.lastMove,
-        check: checkSquare
-      });
-      this.board.interactive = true;
-
-      soundManager.play('move');
-      this.updateUI();
+    if (this.aiTimeoutId) {
+      clearTimeout(this.aiTimeoutId);
+      this.aiTimeoutId = null;
     }
+
+    const undoSingle = () => {
+      const undone = this.chess.undo();
+      if (undone) {
+        this.undoneMoves.push(undone);
+        this.historySnapshots.pop();
+      }
+      return undone;
+    };
+
+    if (this.gameMode === 'bot') {
+      // If playing vs bot and it's player's turn, undo both bot move and player move
+      if (this.chess.turn() === this.playerColor && this.historySnapshots.length >= 3) {
+        undoSingle();
+        undoSingle();
+      } else {
+        undoSingle();
+      }
+    } else {
+      undoSingle();
+    }
+
+    this.reviewIndex = this.historySnapshots.length - 1;
+    this.isGameOver = false;
+
+    if (this.clock) {
+      this.clock.pause();
+    }
+
+    this.board.setPosition(this.chess.board());
+    const lastSnapshot = this.historySnapshots[this.historySnapshots.length - 1];
+    const checkSquare = this.chess.isCheck() ? this.findKingSquare(this.chess.turn()) : null;
+
+    this.board.setHighlights({
+      selected: null,
+      legalMoves: [],
+      lastMove: lastSnapshot.lastMove,
+      check: checkSquare
+    });
+    this.board.interactive = true;
+
+    soundManager.play('move');
+    this.updateUI();
+    this.updateOpeningDisplay();
+    this.updateEvalBar();
   }
 
   handleRedo() {
@@ -717,20 +1069,191 @@ export class StandardChessGame {
   handleFlip() {
     if (this.board) {
       this.board.flip();
+      if (this.evalBar) {
+        this.evalBar.setOrientation(this.board.orientation);
+      }
       this.updatePlayerStrips();
-    }
-  }
-
-  promptNewGame() {
-    if (this.historySnapshots.length > 1 && !this.isGameOver) {
-      if (!window.confirm(i18n.t('standard.confirmNewGame'))) {
-        return;
+      if (this.clock) {
+        this.updateClockDisplay(this.clock.getTime('w'), this.clock.getTime('b'), this.clock.activeColor);
       }
     }
-    this.resetGame();
   }
 
-  resetGame() {
+  /* ========================================================================
+     New Game Setup Dialog
+     ======================================================================== */
+
+  promptNewGame() {
+    this.openNewGameModal();
+  }
+
+  openNewGameModal() {
+    const mountEl = document.getElementById('std-modals-mount');
+    if (!mountEl) return;
+
+    let selectedOpponent = this.gameMode;
+    let selectedLevel = this.botLevel;
+    let selectedColor = this.playerColor;
+    let selectedTime = this.timeControl;
+
+    mountEl.innerHTML = `
+      <div class="chess-modal-backdrop" id="std-newgame-backdrop">
+        <div class="chess-dialog-box new-game-modal" role="dialog" aria-modal="true" aria-labelledby="std-setup-title">
+          <div class="dialog-header">
+            <h3 class="dialog-title" id="std-setup-title">${i18n.t('standard.newGameSetupTitle')}</h3>
+          </div>
+          <div class="dialog-body">
+            <!-- Opponent Selector -->
+            <div class="setup-group">
+              <label class="setup-label">${i18n.t('standard.opponent')}</label>
+              <div class="pill-selector" id="setup-opponent-pills">
+                <button type="button" class="setup-pill-btn ${selectedOpponent === 'bot' ? 'active' : ''}" data-opponent="bot">
+                  ${icons.bot}
+                  <span>${i18n.t('standard.playVsBot')}</span>
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedOpponent === 'pass' ? 'active' : ''}" data-opponent="pass">
+                  ${icons.user}
+                  <span>${i18n.t('standard.playPassPlay')}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Bot Level Selector -->
+            <div class="setup-group" id="setup-level-group" style="${selectedOpponent === 'bot' ? '' : 'display: none;'}">
+              <label class="setup-label">${i18n.t('standard.botLevel')}</label>
+              <div class="pill-selector" id="setup-level-pills">
+                <button type="button" class="setup-pill-btn ${selectedLevel === 1 ? 'active' : ''}" data-level="1">
+                  ${i18n.t('standard.level1')}
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedLevel === 2 ? 'active' : ''}" data-level="2">
+                  ${i18n.t('standard.level2')}
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedLevel === 3 ? 'active' : ''}" data-level="3">
+                  ${i18n.t('standard.level3')}
+                </button>
+              </div>
+            </div>
+
+            <!-- Side Selection -->
+            <div class="setup-group">
+              <label class="setup-label">${i18n.t('standard.playAs')}</label>
+              <div class="pill-selector" id="setup-color-pills">
+                <button type="button" class="setup-pill-btn ${selectedColor === 'w' ? 'active' : ''}" data-color="w">
+                  <span class="player-indicator white"></span>
+                  <span>${i18n.t('standard.whiteColor')}</span>
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedColor === 'random' ? 'active' : ''}" data-color="random">
+                  ${icons.flip}
+                  <span>${i18n.t('standard.randomColor')}</span>
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedColor === 'b' ? 'active' : ''}" data-color="b">
+                  <span class="player-indicator black"></span>
+                  <span>${i18n.t('standard.blackColor')}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Time Control Selector -->
+            <div class="setup-group">
+              <label class="setup-label">${i18n.t('standard.timeControl')}</label>
+              <div class="pill-selector" id="setup-time-pills">
+                <button type="button" class="setup-pill-btn ${selectedTime === 'unlimited' ? 'active' : ''}" data-time="unlimited">
+                  ${i18n.t('standard.unlimited')}
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedTime === '3+2' ? 'active' : ''}" data-time="3+2">
+                  ${i18n.t('standard.blitz32')}
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedTime === '5+0' ? 'active' : ''}" data-time="5+0">
+                  ${i18n.t('standard.blitz50')}
+                </button>
+                <button type="button" class="setup-pill-btn ${selectedTime === '10+0' ? 'active' : ''}" data-time="10+0">
+                  ${i18n.t('standard.rapid100')}
+                </button>
+              </div>
+            </div>
+
+            <!-- Dialog Buttons -->
+            <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+              <button class="btn btn-secondary" id="std-cancel-newgame" style="flex: 1;">
+                ${i18n.t('standard.cancel')}
+              </button>
+              <button class="btn btn-primary" id="std-confirm-newgame" style="flex: 2;">
+                ${i18n.t('standard.startGame')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const levelGroup = document.getElementById('setup-level-group');
+
+    mountEl.querySelectorAll('#setup-opponent-pills .setup-pill-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        mountEl.querySelectorAll('#setup-opponent-pills .setup-pill-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedOpponent = btn.getAttribute('data-opponent');
+        if (levelGroup) {
+          levelGroup.style.display = selectedOpponent === 'bot' ? 'block' : 'none';
+        }
+      });
+    });
+
+    mountEl.querySelectorAll('#setup-level-pills .setup-pill-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        mountEl.querySelectorAll('#setup-level-pills .setup-pill-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedLevel = parseInt(btn.getAttribute('data-level'), 10);
+      });
+    });
+
+    mountEl.querySelectorAll('#setup-color-pills .setup-pill-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        mountEl.querySelectorAll('#setup-color-pills .setup-pill-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedColor = btn.getAttribute('data-color');
+      });
+    });
+
+    mountEl.querySelectorAll('#setup-time-pills .setup-pill-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        mountEl.querySelectorAll('#setup-time-pills .setup-pill-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedTime = btn.getAttribute('data-time');
+      });
+    });
+
+    document.getElementById('std-cancel-newgame')?.addEventListener('click', () => {
+      this.closeModals();
+    });
+
+    document.getElementById('std-confirm-newgame')?.addEventListener('click', () => {
+      let resolvedColor = selectedColor;
+      if (resolvedColor === 'random') {
+        resolvedColor = Math.random() < 0.5 ? 'w' : 'b';
+      }
+
+      this.closeModals();
+      this.startNewConfiguredGame({
+        gameMode: selectedOpponent,
+        botLevel: selectedLevel,
+        playerColor: resolvedColor,
+        timeControl: selectedTime
+      });
+    });
+  }
+
+  startNewConfiguredGame({ gameMode, botLevel, playerColor, timeControl }) {
+    if (this.aiTimeoutId) {
+      clearTimeout(this.aiTimeoutId);
+      this.aiTimeoutId = null;
+    }
+
+    this.gameMode = gameMode;
+    this.botLevel = botLevel;
+    this.playerColor = playerColor;
+    this.timeControl = timeControl;
+
     this.chess.reset();
     this.historySnapshots = [
       {
@@ -746,14 +1269,38 @@ export class StandardChessGame {
     this.gameOverReason = '';
     this.gameOverResult = '';
 
+    const boardOrientation = this.playerColor === 'b' ? 'black' : 'white';
     if (this.board) {
+      this.board.setOrientation(boardOrientation);
       this.board.setPosition(this.chess.board());
       this.board.clearHighlights();
       this.board.clearMarkedSquares();
+      this.board.clearArrows();
       this.board.interactive = true;
     }
 
+    if (this.evalBar) {
+      this.evalBar.setOrientation(boardOrientation);
+      this.evalBar.update(0);
+    }
+
+    this.initClock();
     this.updateUI();
+    this.updateOpeningDisplay();
+
+    // If bot game and player is Black, Bot (White) makes move 1!
+    if (this.gameMode === 'bot' && this.playerColor === 'b') {
+      this.scheduleAiMove();
+    }
+  }
+
+  resetGame() {
+    this.startNewConfiguredGame({
+      gameMode: this.gameMode,
+      botLevel: this.botLevel,
+      playerColor: this.playerColor,
+      timeControl: this.timeControl
+    });
   }
 
   promptResign() {
@@ -774,6 +1321,26 @@ export class StandardChessGame {
 
   promptDrawOffer() {
     if (this.isGameOver) return;
+
+    // If vs Bot, AI evaluates position before agreeing to draw
+    if (this.gameMode === 'bot') {
+      const evalScore = evaluateBoard(this.chess);
+      const isBotWhite = this.playerColor === 'b';
+      const botScore = isBotWhite ? evalScore : -evalScore;
+
+      // Bot accepts draw if position is balanced (|score| < 150)
+      if (Math.abs(botScore) < 150) {
+        this.endGame({
+          result: '½ - ½',
+          title: i18n.t('standard.draw'),
+          reason: i18n.t('standard.drawAgreed')
+        });
+      } else {
+        this.showToast(isBotWhite && botScore > 150 ? 'Máy từ chối xin hòa (Đang có ưu thế)' : 'Máy từ chối hòa!');
+      }
+      return;
+    }
+
     if (!window.confirm(i18n.t('standard.confirmDraw'))) return;
 
     this.endGame({
@@ -914,6 +1481,8 @@ export class StandardChessGame {
         this.board.setPosition(this.chess.board());
         this.board.clearHighlights();
         this.updateUI();
+        this.updateOpeningDisplay();
+        this.updateEvalBar();
         this.closeModals();
         this.showToast('FEN loaded successfully!');
       } catch (e) {
@@ -971,6 +1540,8 @@ export class StandardChessGame {
         });
 
         this.updateUI();
+        this.updateOpeningDisplay();
+        this.updateEvalBar();
         this.closeModals();
         this.showToast('PGN loaded successfully!');
       } catch (e) {
@@ -998,7 +1569,6 @@ export class StandardChessGame {
         this.showToast(successMsg);
       });
     } else {
-      // Fallback
       const ta = document.createElement('textarea');
       ta.value = text;
       document.body.appendChild(ta);
@@ -1074,6 +1644,10 @@ export class StandardChessGame {
     }
   }
 
+  updateStatus() {
+    this.updateTurnBadge();
+  }
+
   updatePlayerStrips() {
     const isWhiteOrientation = !this.board || this.board.orientation === 'white';
 
@@ -1089,12 +1663,37 @@ export class StandardChessGame {
 
     if (topIndicator) topIndicator.className = `player-indicator ${topColor}`;
     if (bottomIndicator) bottomIndicator.className = `player-indicator ${bottomColor}`;
-    if (topLabel) topLabel.textContent = isWhiteOrientation ? 'Black' : 'White';
-    if (bottomLabel) bottomLabel.textContent = isWhiteOrientation ? 'White' : 'Black';
+
+    let topName = topColor === 'white' ? 'White' : 'Black';
+    let bottomName = bottomColor === 'white' ? 'White' : 'Black';
+
+    if (this.gameMode === 'bot') {
+      const userColorCode = this.playerColor === 'w' ? 'white' : 'black';
+      const youStr = i18n.t('standard.you') || 'Bạn';
+      const levelLabel = this.getBotLevelLabel();
+      const botStr = `${i18n.t('standard.bot') || 'Máy'} (${levelLabel})`;
+
+      if (topColor === userColorCode) {
+        topName = youStr;
+        bottomName = botStr;
+      } else {
+        topName = botStr;
+        bottomName = youStr;
+      }
+    }
+
+    if (topLabel) topLabel.textContent = topName;
+    if (bottomLabel) bottomLabel.textContent = bottomName;
 
     const currentTurn = this.chess.turn() === 'w' ? 'white' : 'black';
-    if (topStrip) topStrip.classList.toggle('active', topColor === currentTurn);
-    if (bottomStrip) bottomStrip.classList.toggle('active', bottomColor === currentTurn);
+    if (topStrip) topStrip.classList.toggle('active', topColor === currentTurn && !this.isGameOver);
+    if (bottomStrip) bottomStrip.classList.toggle('active', bottomColor === currentTurn && !this.isGameOver);
+  }
+
+  getBotLevelLabel() {
+    if (this.botLevel === 1) return i18n.t('standard.level1') || 'Tập sự';
+    if (this.botLevel === 2) return i18n.t('standard.level2') || 'Trung bình';
+    return i18n.t('standard.level3') || 'Cao thủ';
   }
 
   updateMoveListTable() {

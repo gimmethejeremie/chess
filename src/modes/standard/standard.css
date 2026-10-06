@@ -635,3 +635,187 @@
   from { transform: translate(-50%, 20px); opacity: 0; }
   to { transform: translate(-50%, 0); opacity: 1; }
 }
+
+/* ==========================================================================
+   Advanced Chess Features: Eval Bar, Clocks, ECO Opening Strip, Setup Modal
+   ========================================================================== */
+
+/* Board + Eval Bar Container */
+.board-with-eval-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  position: relative;
+}
+
+.std-eval-mount {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.eval-bar-wrapper {
+  width: 22px;
+  background-color: #1e293b;
+  border-radius: var(--radius-sm, 4px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: opacity 0.2s ease, width 0.2s ease;
+  user-select: none;
+}
+
+.eval-bar-wrapper.hidden {
+  display: none !important;
+}
+
+.eval-bar-fill-white {
+  width: 100%;
+  background-color: #ffffff;
+  transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.eval-bar-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.65rem;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  pointer-events: none;
+  z-index: 2;
+  transition: color 0.2s ease, top 0.2s ease, bottom 0.2s ease;
+}
+
+/* Digital Player Clocks */
+.player-clock-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm, 4px);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.player-clock-box.active {
+  background-color: var(--bg-surface-hover);
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.player-clock-box.low-time {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: #ef4444;
+  animation: clockLowPulse 1s infinite alternate ease-in-out;
+}
+
+@keyframes clockLowPulse {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
+}
+
+/* Opening Name Strip */
+.opening-name-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  background-color: var(--bg-surface-hover);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.opening-eco-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm, 4px);
+  background-color: var(--accent-color);
+  color: var(--accent-text);
+  letter-spacing: 0.04em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.opening-name-text {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* New Game Setup Modal */
+.new-game-modal {
+  max-width: 440px;
+}
+
+.setup-group {
+  margin-bottom: 1.1rem;
+}
+
+.setup-label {
+  display: block;
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.45rem;
+}
+
+.pill-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.setup-pill-btn {
+  flex: 1;
+  min-width: 90px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.setup-pill-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.setup-pill-btn:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.setup-pill-btn.active {
+  background-color: var(--accent-color);
+  color: var(--accent-text);
+  border-color: var(--accent-color);
+}

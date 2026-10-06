@@ -38,16 +38,18 @@ export class BoardToolbar {
     this.showFlip = options.showFlip !== undefined ? options.showFlip : true;
     this.showThemes = options.showThemes !== undefined ? options.showThemes : true;
     this.showCoords = options.showCoords !== undefined ? options.showCoords : true;
-    this.showZen = options.showZen !== undefined ? options.showZen : true;
     this.showReset = Boolean(options.showReset);
     this.showClearArrows = Boolean(options.showClearArrows);
+    this.showEvalBar = Boolean(options.showEvalBar);
 
     this.onFlip = options.onFlip || null;
     this.onReset = options.onReset || null;
     this.onZenToggle = options.onZenToggle || null;
     this.onClearArrows = options.onClearArrows || null;
+    this.onEvalToggle = options.onEvalToggle || null;
 
     this.isZen = false;
+    this.isEvalVisible = options.isEvalVisible !== undefined ? options.isEvalVisible : true;
     this.storeUnsub = null;
     this.i18nUnsub = null;
 
@@ -157,6 +159,23 @@ export class BoardToolbar {
               aria-label="${i18n.t('sandbox.clearAnnotations')}"
             >
               <span class="ctrl-icon">${icons.clearTrash}</span>
+            </button>
+          `
+              : ''
+          }
+
+          ${
+            this.showEvalBar
+              ? `
+            <button
+              type="button"
+              class="board-ctrl-btn ${this.isEvalVisible ? 'active' : ''}"
+              data-action="eval"
+              title="${i18n.t('standard.toggleEval') || 'Thanh đánh giá thế trận'}"
+              aria-label="${i18n.t('standard.toggleEval') || 'Thanh đánh giá thế trận'}"
+              aria-pressed="${this.isEvalVisible}"
+            >
+              <span class="ctrl-icon">${icons.evalMeter}</span>
             </button>
           `
               : ''
@@ -322,6 +341,19 @@ export class BoardToolbar {
 
         if (this.onZenToggle) {
           this.onZenToggle(this.isZen);
+        }
+      });
+    }
+
+    // Evaluation Bar toggle
+    const evalBtn = this.container.querySelector('[data-action="eval"]');
+    if (evalBtn) {
+      evalBtn.addEventListener('click', () => {
+        this.isEvalVisible = !this.isEvalVisible;
+        evalBtn.classList.toggle('active', this.isEvalVisible);
+        evalBtn.setAttribute('aria-pressed', String(this.isEvalVisible));
+        if (this.onEvalToggle) {
+          this.onEvalToggle(this.isEvalVisible);
         }
       });
     }
