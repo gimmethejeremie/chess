@@ -110,12 +110,14 @@
 /* Coordinates */
 .square-coord {
   position: absolute;
-  font-size: clamp(8px, 1.8vw, 12px);
+  font-size: clamp(9px, 2vw, 13px);
   font-weight: 700;
   line-height: 1;
   pointer-events: none;
   user-select: none;
-  opacity: 0.9;
+  z-index: 5;
+  opacity: 0.95;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .square-coord.rank {
@@ -126,6 +128,14 @@
 .square-coord.file {
   bottom: 3px;
   right: 3px;
+}
+
+.chess-square.light .square-coord {
+  color: var(--coord-light, #769656);
+}
+
+.chess-square.dark .square-coord {
+  color: var(--coord-dark, #eeeed2);
 }
 
 /* Highlights */

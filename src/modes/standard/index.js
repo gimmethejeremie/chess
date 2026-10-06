@@ -18,6 +18,7 @@ import { BoardToolbar } from '../../core/board/boardToolbar.js';
 import { icons } from '../../core/icons/index.js';
 import { soundManager } from '../../core/sounds/index.js';
 import { store } from '../../core/store/index.js';
+import { router } from '../../core/router/index.js';
 import { i18n } from '../../core/i18n/index.js';
 import './standard.css';
 
@@ -91,6 +92,10 @@ export class StandardChessGame {
       if (this.boardToolbar) {
         this.boardToolbar.updateState();
       }
+      const coordsBtn = document.getElementById('std-action-coords');
+      if (coordsBtn) {
+        coordsBtn.classList.toggle('active', state.showCoordinates);
+      }
     });
 
     // Subscribe to language changes
@@ -160,6 +165,9 @@ export class StandardChessGame {
 
     const flipBtn = document.getElementById('std-action-flip');
     if (flipBtn) flipBtn.innerHTML = `${icons.flip}<span>${i18n.t('standard.flip')}</span>`;
+
+    const coordsBtn = document.getElementById('std-action-coords');
+    if (coordsBtn) coordsBtn.innerHTML = `${icons.coords}<span>${i18n.t('demo.coords') || 'Tọa độ'}</span>`;
 
     const drawBtn = document.getElementById('std-action-draw');
     if (drawBtn) drawBtn.innerHTML = `${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span>`;
@@ -255,6 +263,7 @@ export class StandardChessGame {
             <div class="game-actions-panel">
               <button class="action-btn" id="std-action-new">${icons.reset}<span>${i18n.t('standard.newGame')}</span></button>
               <button class="action-btn" id="std-action-flip">${icons.flip}<span>${i18n.t('standard.flip')}</span></button>
+              <button class="action-btn ${store.getState().showCoordinates ? 'active' : ''}" id="std-action-coords">${icons.coords}<span>${i18n.t('demo.coords') || 'Tọa độ'}</span></button>
               <button class="action-btn" id="std-action-clear-arrows">${icons.clearTrash}<span>${i18n.t('standard.clearAnnotations')}</span></button>
               <button class="action-btn" id="std-action-draw">${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span></button>
               <button class="action-btn danger" id="std-action-resign">${icons.flag}<span>${i18n.t('standard.resign')}</span></button>
@@ -305,7 +314,7 @@ export class StandardChessGame {
     const backBtn = document.getElementById('std-back-home');
     if (backBtn) {
       backBtn.addEventListener('click', () => {
-        store.setMode(null);
+        router.navigate(null);
       });
     }
 
@@ -343,6 +352,17 @@ export class StandardChessGame {
     // Game Actions
     document.getElementById('std-action-new')?.addEventListener('click', () => this.promptNewGame());
     document.getElementById('std-action-flip')?.addEventListener('click', () => this.handleFlip());
+    document.getElementById('std-action-coords')?.addEventListener('click', () => {
+      const next = store.toggleCoordinates();
+      this.board?.setShowCoordinates(next);
+      if (this.boardToolbar) {
+        this.boardToolbar.updateState();
+      }
+      const coordsBtn = document.getElementById('std-action-coords');
+      if (coordsBtn) {
+        coordsBtn.classList.toggle('active', next);
+      }
+    });
     document.getElementById('std-action-clear-arrows')?.addEventListener('click', () => {
       this.board?.clearArrows();
       this.board?.clearMarkedSquares();

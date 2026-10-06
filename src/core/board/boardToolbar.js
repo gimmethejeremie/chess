@@ -259,7 +259,8 @@ export class BoardToolbar {
     // Coordinates toggle
     const coordsBtn = this.container.querySelector('[data-action="coords"]');
     if (coordsBtn) {
-      coordsBtn.addEventListener('click', () => {
+      coordsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         const next = store.toggleCoordinates();
         if (this.board) {
           this.board.setShowCoordinates(next);

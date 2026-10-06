@@ -6,11 +6,12 @@ import { i18n } from './core/i18n/index.js';
 import { store } from './core/store/index.js';
 import { icons } from './core/icons/index.js';
 import { openSettingsModal } from './core/settings/index.js';
+import { router } from './core/router/index.js';
 import { initStandardMode } from './modes/standard/index.js';
 import { initSandboxMode } from './modes/sandbox/index.js';
 
-// Apply initial saved/preferred theme to document element
-store.applyTheme();
+// Initialize hash-based routing with browser history support
+router.init();
 
 const appRoot = document.getElementById('app');
 let currentMountedMode = Symbol('unmounted');
@@ -85,7 +86,7 @@ function renderApp() {
 
         const backBtn = document.getElementById('back-to-home');
         if (backBtn) {
-          backBtn.addEventListener('click', () => store.setMode(null));
+          backBtn.addEventListener('click', () => router.navigate(null));
         }
       }
     }
@@ -328,7 +329,7 @@ function renderActiveModeContainer() {
 function attachEventHandlers() {
   const brandHome = document.getElementById('brand-home');
   if (brandHome) {
-    const goHome = () => store.setMode(null);
+    const goHome = () => router.navigate(null);
     brandHome.addEventListener('click', goHome);
     brandHome.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -371,7 +372,7 @@ function attachEventHandlers() {
     const activateMode = () => {
       const mode = card.getAttribute('data-mode');
       if (mode) {
-        store.setMode(mode);
+        router.navigate(mode);
       }
     };
 

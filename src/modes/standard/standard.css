@@ -393,6 +393,12 @@
   border-color: rgba(239, 68, 68, 0.3);
 }
 
+.action-btn.active {
+  background-color: var(--bg-surface-hover);
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
 /* Modals Common Styles */
 .chess-modal-backdrop {
   position: fixed;
