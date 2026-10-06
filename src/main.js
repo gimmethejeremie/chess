@@ -146,14 +146,8 @@ function updateHeaderControls(soundTitle, langLabel, themeLabel) {
  * Update home screen text labels in-place on language change
  */
 function updateHomeScreenText() {
-  const heroBadge = document.querySelector('.hero-badge span:last-child');
-  if (heroBadge) heroBadge.textContent = i18n.t('app.heroBadge');
-
   const heroTitle = document.querySelector('.hero-title');
   if (heroTitle) heroTitle.textContent = i18n.t('app.heroHeadline');
-
-  const heroSubtitle = document.querySelector('.hero-subtitle');
-  if (heroSubtitle) heroSubtitle.textContent = i18n.t('app.heroSub');
 
   // Update mode cards
   const cardStandard = document.querySelector('[data-mode="standard"]');
@@ -187,12 +181,7 @@ function updateHomeScreenText() {
 function renderHomeScreen() {
   return `
     <section class="hero-section">
-      <div class="hero-badge">
-        <span class="badge-dot"></span>
-        <span>${i18n.t('app.heroBadge')}</span>
-      </div>
       <h2 class="hero-title">${i18n.t('app.heroHeadline')}</h2>
-      <p class="hero-subtitle">${i18n.t('app.heroSub')}</p>
     </section>
 
     <!-- 2 Primary Modes Navigation Grid -->
