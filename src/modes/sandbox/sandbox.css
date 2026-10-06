@@ -36,13 +36,13 @@
 }
 
 .sandbox-badge {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-full);
-  background-color: rgba(16, 185, 129, 0.15);
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background-color: rgba(16, 185, 129, 0.12);
   color: #10b981;
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
@@ -149,7 +149,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   font-size: 0.825rem;
   font-weight: 600;
   border-radius: var(--radius-sm);
@@ -159,6 +159,12 @@
   cursor: pointer;
   transition: all 0.15s ease;
   touch-action: manipulation;
+}
+
+.tool-chip-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
 .tool-chip-btn:hover {
@@ -177,6 +183,12 @@
   border-color: #ef4444;
 }
 
+/* Board Toolbar Mount */
+.sb-board-toolbar-wrap {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
 /* Board Action Toolbar */
 .sandbox-board-actions {
   display: flex;
@@ -185,6 +197,16 @@
   justify-content: center;
   gap: 0.5rem;
   width: 100%;
+}
+
+.sandbox-board-actions .toolbar-btn {
+  gap: 0.45rem;
+}
+
+.sandbox-board-actions .toolbar-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
 /* Right Column: Settings, FEN & Saved Positions */
@@ -210,7 +232,14 @@
   margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+}
+
+.sandbox-card-title svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-color);
+  flex-shrink: 0;
 }
 
 /* Game Attributes Form */
@@ -237,15 +266,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background-color: var(--bg-surface-hover);
   color: var(--text-primary);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.pill-option .color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.pill-option .color-dot.white {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.pill-option .color-dot.black {
+  background-color: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .pill-option.active {

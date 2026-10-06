@@ -14,6 +14,8 @@
 
 import { Chess } from 'chess.js';
 import { BoardRenderer } from '../../core/board/index.js';
+import { BoardToolbar } from '../../core/board/boardToolbar.js';
+import { icons } from '../../core/icons/index.js';
 import { ChessClock, TIME_PRESETS } from '../../core/clock/index.js';
 import { soundManager } from '../../core/sounds/index.js';
 import { store } from '../../core/store/index.js';
@@ -31,6 +33,7 @@ export class MultiplayerGame {
     this.container = container;
     this.chess = new Chess();
     this.board = null;
+    this.boardToolbar = null;
 
     // Detect initial submode from URL (?room=) or localStorage
     const urlParams = new URLSearchParams(window.location.search);
@@ -98,6 +101,9 @@ export class MultiplayerGame {
         this.board.setBoardTheme(state.boardTheme);
         this.board.setShowCoordinates(state.showCoordinates);
       }
+      if (this.boardToolbar) {
+        this.boardToolbar.updateState();
+      }
     });
 
     // Subscribe to language changes
@@ -127,6 +133,10 @@ export class MultiplayerGame {
       this.onlineUnsubPresence();
       this.onlineUnsubPresence = null;
     }
+    if (this.boardToolbar) {
+      this.boardToolbar.destroy();
+      this.boardToolbar = null;
+    }
     if (this.board) {
       this.board.destroy();
       this.board = null;
@@ -138,45 +148,45 @@ export class MultiplayerGame {
     const backBtn = document.getElementById('mp-back-home');
     if (backBtn) {
       backBtn.title = i18n.t('multiplayer.back');
-      backBtn.textContent = `← ${i18n.t('multiplayer.back')}`;
+      backBtn.innerHTML = `${icons.back}<span>${i18n.t('multiplayer.back')}</span>`;
     }
     const titleEl = document.querySelector('.multiplayer-title');
     if (titleEl) titleEl.textContent = i18n.t('multiplayer.title');
 
     const tabHotseat = document.getElementById('tab-hotseat');
-    if (tabHotseat) tabHotseat.innerHTML = `👥 ${i18n.t('multiplayer.hotseatTab')}`;
+    if (tabHotseat) tabHotseat.innerHTML = `${icons.modeMultiplayer}<span>${i18n.t('multiplayer.hotseatTab')}</span>`;
 
     const tabOnline = document.getElementById('tab-online');
-    if (tabOnline) tabOnline.innerHTML = `🌐 ${i18n.t('multiplayer.onlineTab')}`;
+    if (tabOnline) tabOnline.innerHTML = `${icons.globe}<span>${i18n.t('multiplayer.onlineTab')}</span>`;
 
     const flipBtn = document.getElementById('mp-btn-flip');
     if (flipBtn) {
       flipBtn.title = i18n.t('multiplayer.flip');
-      flipBtn.innerHTML = `🔄 ${i18n.t('multiplayer.flip')}`;
+      flipBtn.innerHTML = `${icons.flip}<span>${i18n.t('multiplayer.flip')}</span>`;
     }
 
     if (this.subMode === 'hotseat') {
       const tcTitle = document.querySelector('.mp-card-title');
-      if (tcTitle) tcTitle.innerHTML = `⏱️ ${i18n.t('multiplayer.timeControl')}`;
+      if (tcTitle) tcTitle.innerHTML = `${icons.clock}<span>${i18n.t('multiplayer.timeControl')}</span>`;
 
       const pauseBtn = document.getElementById('mp-btn-pause');
       if (pauseBtn) {
         pauseBtn.innerHTML = this.isPaused
-          ? `▶️ ${i18n.t('multiplayer.resume')}`
-          : `⏸️ ${i18n.t('multiplayer.pause')}`;
+          ? `${icons.playArrow}<span>${i18n.t('multiplayer.resume')}</span>`
+          : `${icons.pause}<span>${i18n.t('multiplayer.pause')}</span>`;
       }
 
       const newMatchBtn = document.getElementById('mp-btn-new-match');
-      if (newMatchBtn) newMatchBtn.innerHTML = `↺ ${i18n.t('multiplayer.newGame')}`;
+      if (newMatchBtn) newMatchBtn.innerHTML = `${icons.reset}<span>${i18n.t('multiplayer.newGame')}</span>`;
 
       const drawBtn = document.getElementById('mp-btn-offer-draw');
-      if (drawBtn) drawBtn.innerHTML = `🤝 ${i18n.t('multiplayer.offerDraw')}`;
+      if (drawBtn) drawBtn.innerHTML = `${icons.handshake}<span>${i18n.t('multiplayer.offerDraw')}</span>`;
 
       const resignBtn = document.getElementById('mp-btn-resign');
-      if (resignBtn) resignBtn.innerHTML = `🏳️ ${i18n.t('multiplayer.resign')}`;
+      if (resignBtn) resignBtn.innerHTML = `${icons.flag}<span>${i18n.t('multiplayer.resign')}</span>`;
 
       const rematchBtn = document.getElementById('mp-btn-rematch');
-      if (rematchBtn) rematchBtn.innerHTML = `🔁 ${i18n.t('multiplayer.rematch')}`;
+      if (rematchBtn) rematchBtn.innerHTML = `${icons.reset}<span>${i18n.t('multiplayer.rematch')}</span>`;
     } else {
       if (this.onlineRoomId) {
         this.updateOnlineMatchUI();
@@ -197,7 +207,8 @@ export class MultiplayerGame {
         <header class="multiplayer-header">
           <div class="multiplayer-header-left">
             <button class="mode-back-btn" id="mp-back-home" title="${i18n.t('multiplayer.back')}">
-              ← ${i18n.t('multiplayer.back')}
+              ${icons.back}
+              <span>${i18n.t('multiplayer.back')}</span>
             </button>
             <h2 class="multiplayer-title">${i18n.t('multiplayer.title')}</h2>
             <span class="multiplayer-badge">${this.subMode === 'hotseat' ? 'Hot-Seat' : 'Online'}</span>
@@ -205,7 +216,8 @@ export class MultiplayerGame {
 
           <div style="display: flex; gap: 0.5rem; align-items: center;">
             <button class="btn btn-secondary" id="mp-btn-flip" title="${i18n.t('multiplayer.flip')}">
-              🔄 ${i18n.t('multiplayer.flip')}
+              ${icons.flip}
+              <span>${i18n.t('multiplayer.flip')}</span>
             </button>
           </div>
         </header>
@@ -213,10 +225,12 @@ export class MultiplayerGame {
         <!-- Sub-Mode Selection Tabs -->
         <div class="mp-mode-tabs" role="tablist">
           <button class="mp-mode-tab ${this.subMode === 'hotseat' ? 'active' : ''}" id="tab-hotseat" role="tab" aria-selected="${this.subMode === 'hotseat'}">
-            👥 ${i18n.t('multiplayer.hotseatTab')}
+            ${icons.modeMultiplayer}
+            <span>${i18n.t('multiplayer.hotseatTab')}</span>
           </button>
           <button class="mp-mode-tab ${this.subMode === 'online' ? 'active' : ''}" id="tab-online" role="tab" aria-selected="${this.subMode === 'online'}">
-            🌐 ${i18n.t('multiplayer.onlineTab')}
+            ${icons.globe}
+            <span>${i18n.t('multiplayer.onlineTab')}</span>
           </button>
         </div>
 
@@ -317,13 +331,17 @@ export class MultiplayerGame {
 
             <!-- Pause Overlay -->
             <div class="board-pause-overlay" id="mp-pause-overlay" style="display: none;">
-              <span class="pause-icon">⏸️</span>
+              <span class="pause-icon">${icons.pause}</span>
               <span class="pause-text">${i18n.t('multiplayer.gamePaused')}</span>
               <button class="btn btn-primary" id="mp-btn-resume-overlay" style="width: auto; padding: 0.5rem 1.25rem;">
-                ▶️ ${i18n.t('multiplayer.resumeBtn')}
+                ${icons.playArrow}
+                <span>${i18n.t('multiplayer.resumeBtn')}</span>
               </button>
             </div>
           </div>
+
+          <!-- Live Board Toolbar Component Mount -->
+          <div id="mp-hotseat-board-toolbar" class="mp-board-toolbar-wrap"></div>
 
           <!-- Bottom Clock (White by default) -->
           <div class="chess-clock-box bottom active" id="clock-bottom">
@@ -339,7 +357,7 @@ export class MultiplayerGame {
         <aside class="multiplayer-side-panel">
           <!-- Time Control Selector Card -->
           <div class="mp-card">
-            <h3 class="mp-card-title">⏱️ ${i18n.t('multiplayer.timeControl')}</h3>
+            <h3 class="mp-card-title">${icons.clock} <span>${i18n.t('multiplayer.timeControl')}</span></h3>
 
             <div class="preset-pills-grid">
               ${TIME_PRESETS.slice(0, 9)
@@ -354,8 +372,9 @@ export class MultiplayerGame {
             </div>
 
             <details style="margin-top: 0.5rem; font-size: 0.85rem;">
-              <summary style="cursor: pointer; font-weight: 600; color: var(--text-secondary);">
-                ⚙️ ${i18n.t('multiplayer.custom')} / Delay options
+              <summary style="cursor: pointer; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 0.35rem;">
+                ${icons.settings}
+                <span>${i18n.t('multiplayer.custom')} / Delay options</span>
               </summary>
               <div class="custom-time-form">
                 <div>
@@ -384,22 +403,27 @@ export class MultiplayerGame {
 
           <!-- Hot-Seat Game Controls -->
           <div class="mp-card">
-            <h3 class="mp-card-title">🎮 Match Controls</h3>
+            <h3 class="mp-card-title">${icons.modeMultiplayer} <span>Match Controls</span></h3>
             <div class="hotseat-actions-grid">
               <button class="mp-action-btn" id="mp-btn-pause">
-                ⏸️ ${i18n.t('multiplayer.pause')}
+                ${icons.pause}
+                <span>${i18n.t('multiplayer.pause')}</span>
               </button>
               <button class="mp-action-btn" id="mp-btn-new-match">
-                ↺ ${i18n.t('multiplayer.newGame')}
+                ${icons.reset}
+                <span>${i18n.t('multiplayer.newGame')}</span>
               </button>
               <button class="mp-action-btn" id="mp-btn-offer-draw">
-                🤝 ${i18n.t('multiplayer.offerDraw')}
+                ${icons.handshake}
+                <span>${i18n.t('multiplayer.offerDraw')}</span>
               </button>
               <button class="mp-action-btn danger" id="mp-btn-resign">
-                🏳️ ${i18n.t('multiplayer.resign')}
+                ${icons.flag}
+                <span>${i18n.t('multiplayer.resign')}</span>
               </button>
               <button class="mp-action-btn" id="mp-btn-rematch" style="grid-column: span 2;">
-                🔁 ${i18n.t('multiplayer.rematch')}
+                ${icons.reset}
+                <span>${i18n.t('multiplayer.rematch')}</span>
               </button>
             </div>
           </div>
@@ -436,6 +460,23 @@ export class MultiplayerGame {
         this.handleDropHotseat(fromSquare, toSquare);
       }
     });
+
+    const toolbarMount = document.getElementById('mp-hotseat-board-toolbar');
+    if (toolbarMount) {
+      if (this.boardToolbar) this.boardToolbar.destroy();
+      this.boardToolbar = new BoardToolbar(toolbarMount, {
+        board: this.board,
+        showFlip: true,
+        showThemes: true,
+        showCoords: true,
+        showZen: true,
+        onFlip: () => {
+          this.orientation = this.board.orientation;
+          this.updateClockLabels();
+          this.updateClockDisplay(this.clock.getTime('w'), this.clock.getTime('b'));
+        }
+      });
+    }
   }
 
   setupClockListeners() {
@@ -721,12 +762,12 @@ export class MultiplayerGame {
     if (this.isPaused) {
       this.clock.pause();
       if (overlay) overlay.style.display = 'flex';
-      if (pauseBtn) pauseBtn.innerHTML = `▶️ ${i18n.t('multiplayer.resume')}`;
+      if (pauseBtn) pauseBtn.innerHTML = `${icons.playArrow}<span>${i18n.t('multiplayer.resume')}</span>`;
       if (this.board) this.board.interactive = false;
     } else {
       this.clock.resume();
       if (overlay) overlay.style.display = 'none';
-      if (pauseBtn) pauseBtn.innerHTML = `⏸️ ${i18n.t('multiplayer.pause')}`;
+      if (pauseBtn) pauseBtn.innerHTML = `${icons.pause}<span>${i18n.t('multiplayer.pause')}</span>`;
       if (this.board) this.board.interactive = true;
     }
   }
@@ -1107,8 +1148,9 @@ export class MultiplayerGame {
             <span id="presence-label">${i18n.t('multiplayer.waitingOpponent')}</span>
           </span>
 
-          <button class="btn btn-secondary" id="mp-btn-leave-room" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; color: #ef4444;">
-            🚪 ${i18n.t('multiplayer.leaveRoom')}
+          <button class="btn btn-secondary" id="mp-btn-leave-room" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; color: #ef4444; gap: 0.35rem;">
+            ${icons.close}
+            <span>${i18n.t('multiplayer.leaveRoom')}</span>
           </button>
         </div>
       </div>
@@ -1131,6 +1173,9 @@ export class MultiplayerGame {
           <!-- Board Mount -->
           <div id="mp-online-board-mount" style="width: 100%;"></div>
 
+          <!-- Live Board Toolbar Component Mount -->
+          <div id="mp-online-board-toolbar" class="mp-board-toolbar-wrap"></div>
+
           <!-- Bottom Clock (You or White) -->
           <div class="chess-clock-box bottom" id="online-clock-bottom">
             <div class="clock-player-info">
@@ -1147,7 +1192,7 @@ export class MultiplayerGame {
         <aside class="multiplayer-side-panel">
           <!-- Match Status Card -->
           <div class="mp-card">
-            <h3 class="mp-card-title">♟️ Match Status</h3>
+            <h3 class="mp-card-title">${icons.modeStandard} <span>Match Status</span></h3>
             <div id="online-match-status-text" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.5rem;">
               ${this.getOnlineStatusText()}
             </div>
@@ -1157,23 +1202,27 @@ export class MultiplayerGame {
 
             <div class="hotseat-actions-grid" style="margin-top: 0.75rem;">
               <button class="mp-action-btn" id="mp-online-offer-draw" ${this.onlineRole === 'spectator' ? 'disabled' : ''}>
-                🤝 ${i18n.t('multiplayer.offerDraw')}
+                ${icons.handshake}
+                <span>${i18n.t('multiplayer.offerDraw')}</span>
               </button>
               <button class="mp-action-btn danger" id="mp-online-resign" ${this.onlineRole === 'spectator' ? 'disabled' : ''}>
-                🏳️ ${i18n.t('multiplayer.resign')}
+                ${icons.flag}
+                <span>${i18n.t('multiplayer.resign')}</span>
               </button>
               <button class="mp-action-btn" id="mp-online-rematch" style="grid-column: span 2;" disabled>
-                🔁 ${i18n.t('multiplayer.rematch')}
+                ${icons.reset}
+                <span>${i18n.t('multiplayer.rematch')}</span>
               </button>
               <button class="mp-action-btn" id="mp-online-download-pgn" style="grid-column: span 2;">
-                ⬇️ ${i18n.t('multiplayer.downloadPgn')}
+                ${icons.pgn}
+                <span>${i18n.t('multiplayer.downloadPgn')}</span>
               </button>
             </div>
           </div>
 
           <!-- Move History Card -->
           <div class="mp-card">
-            <h3 class="mp-card-title">📜 Move History</h3>
+            <h3 class="mp-card-title">${icons.pgn} <span>Move History</span></h3>
             <div class="online-moves-list" id="online-moves-list">
               <span style="color: var(--text-secondary); font-size: 0.8rem;">No moves yet</span>
             </div>
@@ -1215,6 +1264,18 @@ export class MultiplayerGame {
         this.handleDropOnline(fromSquare, toSquare);
       }
     });
+
+    const toolbarMount = document.getElementById('mp-online-board-toolbar');
+    if (toolbarMount) {
+      if (this.boardToolbar) this.boardToolbar.destroy();
+      this.boardToolbar = new BoardToolbar(toolbarMount, {
+        board: this.board,
+        showFlip: true,
+        showThemes: true,
+        showCoords: true,
+        showZen: true
+      });
+    }
   }
 
   attachOnlineRoomEvents() {

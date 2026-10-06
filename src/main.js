@@ -7,6 +7,8 @@ import { i18n } from './core/i18n/index.js';
 import { store } from './core/store/index.js';
 import { soundManager } from './core/sounds/index.js';
 import { BoardRenderer } from './core/board/index.js';
+import { BoardToolbar } from './core/board/boardToolbar.js';
+import { icons } from './core/icons/index.js';
 import { openSettingsModal } from './core/settings/index.js';
 import { initStandardMode } from './modes/standard/index.js';
 import { initSandboxMode } from './modes/sandbox/index.js';
@@ -18,6 +20,7 @@ store.applyTheme();
 const appRoot = document.getElementById('app');
 let demoChessInstance = null;
 let demoBoardRenderer = null;
+let demoBoardToolbar = null;
 let currentMountedMode = Symbol('unmounted');
 let activeModeInstance = null;
 
@@ -60,21 +63,21 @@ function renderApp() {
       <!-- Top Navigation Header -->
       <header class="app-header">
         <div class="brand-wrapper" id="brand-home" title="Chess Playground" tabindex="0" role="button" aria-label="Chess Playground Home">
-          <span class="brand-icon">♞</span>
+          <span class="brand-icon">${icons.chessKnight}</span>
           <h1 class="brand-title">${i18n.t('app.title')}</h1>
         </div>
         <div class="header-controls">
           <button class="btn-icon" id="toggle-sound-header" aria-label="${soundTitle}" title="${soundTitle}">
-            <span>${soundIcon}</span>
+            <span>${state.soundMuted ? icons.volumeMute : icons.volumeOn}</span>
           </button>
-          <button class="btn-icon" id="toggle-lang" aria-label="${langLabel}" title="${langLabel}">
-            ${langLabel}
+          <button class="btn-icon btn-lang" id="toggle-lang" aria-label="${langLabel}" title="${langLabel}">
+            <span class="lang-code">${currentLocale.toUpperCase()}</span>
           </button>
           <button class="btn-icon" id="toggle-theme" aria-label="${themeLabel}" title="${themeLabel}">
-            <span>${themeIcon}</span>
+            <span>${currentTheme === 'dark' ? icons.sun : icons.moon}</span>
           </button>
           <button class="btn-icon" id="btn-settings-header" aria-label="${i18n.t('settings.title')}" title="${i18n.t('settings.title')}">
-            <span>⚙️</span>
+            <span>${icons.settings}</span>
           </button>
         </div>
       </header>
@@ -86,7 +89,7 @@ function renderApp() {
 
       <!-- Footer -->
       <footer class="app-footer">
-        <p>Chess Playground &bull; Personal &amp; Non-commercial &bull; Mobile-First &bull; <a href="https://github.com/gimmethejeremie/life-os-bot" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">GitHub</a></p>
+        <p>Chess Playground &bull; Personal &amp; Non-commercial &bull; Mobile-First &bull; <a href="https://github.com/gimmethejeremie/chess" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">GitHub</a></p>
       </footer>
     `;
 
@@ -102,6 +105,10 @@ function renderApp() {
       if (demoBoardRenderer) {
         demoBoardRenderer.destroy();
         demoBoardRenderer = null;
+      }
+      if (demoBoardToolbar) {
+        demoBoardToolbar.destroy();
+        demoBoardToolbar = null;
       }
       if (activeModeInstance) {
         activeModeInstance.destroy();
@@ -138,31 +145,36 @@ function updateHeaderControls(soundTitle, soundIcon, langLabel, themeLabel, them
   const brandTitle = document.querySelector('.brand-title');
   if (brandTitle) brandTitle.textContent = i18n.t('app.title');
 
+  const state = store.getState();
+  const currentLocale = i18n.getLocale();
+  const currentTheme = state.theme;
+
   const soundBtn = document.getElementById('toggle-sound-header');
   if (soundBtn) {
     soundBtn.title = soundTitle;
     soundBtn.setAttribute('aria-label', soundTitle);
-    soundBtn.innerHTML = `<span>${soundIcon}</span>`;
+    soundBtn.innerHTML = `<span>${state.soundMuted ? icons.volumeMute : icons.volumeOn}</span>`;
   }
 
   const langBtn = document.getElementById('toggle-lang');
   if (langBtn) {
     langBtn.title = langLabel;
     langBtn.setAttribute('aria-label', langLabel);
-    langBtn.textContent = langLabel;
+    langBtn.innerHTML = `<span class="lang-code">${currentLocale.toUpperCase()}</span>`;
   }
 
   const themeBtn = document.getElementById('toggle-theme');
   if (themeBtn) {
     themeBtn.title = themeLabel;
     themeBtn.setAttribute('aria-label', themeLabel);
-    themeBtn.innerHTML = `<span>${themeIcon}</span>`;
+    themeBtn.innerHTML = `<span>${currentTheme === 'dark' ? icons.sun : icons.moon}</span>`;
   }
 
   const settingsBtn = document.getElementById('btn-settings-header');
   if (settingsBtn) {
     settingsBtn.title = i18n.t('settings.title');
     settingsBtn.setAttribute('aria-label', i18n.t('settings.title'));
+    settingsBtn.innerHTML = `<span>${icons.settings}</span>`;
   }
 }
 
@@ -182,22 +194,15 @@ function updateHomeScreenText() {
   const demoSubtitle = document.querySelector('.demo-subtitle');
   if (demoSubtitle) demoSubtitle.textContent = i18n.t('demo.subtitle');
 
-  const flipBtn = document.getElementById('demo-btn-flip');
-  if (flipBtn) {
-    flipBtn.title = i18n.t('demo.flip');
-    flipBtn.innerHTML = `🔄 ${i18n.t('demo.flip')}`;
+  // Synchronize demo board with store in case settings or theme changed
+  const state = store.getState();
+  if (demoBoardRenderer) {
+    demoBoardRenderer.setBoardTheme(state.boardTheme);
+    demoBoardRenderer.setPieceSet(state.pieceSet);
+    demoBoardRenderer.setShowCoordinates(state.showCoordinates);
   }
-
-  const resetBtn = document.getElementById('demo-btn-reset');
-  if (resetBtn) {
-    resetBtn.title = i18n.t('demo.reset');
-    resetBtn.innerHTML = `↺ ${i18n.t('demo.reset')}`;
-  }
-
-  const coordsBtn = document.getElementById('demo-btn-coords');
-  if (coordsBtn) {
-    coordsBtn.title = i18n.t('demo.coords');
-    coordsBtn.innerHTML = `🔤 ${i18n.t('demo.coords')}`;
+  if (demoBoardToolbar) {
+    demoBoardToolbar.updateState();
   }
 
   // Update mode cards
@@ -210,7 +215,7 @@ function updateHomeScreenText() {
     if (badge) badge.textContent = i18n.t('modes.standard.badge');
     if (title) title.textContent = i18n.t('modes.standard.title');
     if (desc) desc.textContent = i18n.t('modes.standard.description');
-    if (btn) btn.textContent = i18n.t('modes.standard.action');
+    if (btn) btn.innerHTML = `<span>${i18n.t('modes.standard.action')}</span> ${icons.playArrow}`;
   }
 
   const cardSandbox = document.querySelector('[data-mode="sandbox"]');
@@ -222,7 +227,7 @@ function updateHomeScreenText() {
     if (badge) badge.textContent = i18n.t('modes.sandbox.badge');
     if (title) title.textContent = i18n.t('modes.sandbox.title');
     if (desc) desc.textContent = i18n.t('modes.sandbox.description');
-    if (btn) btn.textContent = i18n.t('modes.sandbox.action');
+    if (btn) btn.innerHTML = `<span>${i18n.t('modes.sandbox.action')}</span> ${icons.playArrow}`;
   }
 
   const cardMultiplayer = document.querySelector('[data-mode="multiplayer"]');
@@ -234,7 +239,7 @@ function updateHomeScreenText() {
     if (badge) badge.textContent = i18n.t('modes.multiplayer.badge');
     if (title) title.textContent = i18n.t('modes.multiplayer.title');
     if (desc) desc.textContent = i18n.t('modes.multiplayer.description');
-    if (btn) btn.textContent = i18n.t('modes.multiplayer.action');
+    if (btn) btn.innerHTML = `<span>${i18n.t('modes.multiplayer.action')}</span> ${icons.playArrow}`;
   }
 
   updateDemoStatus();
@@ -265,36 +270,8 @@ function renderHomeScreen() {
         White to move
       </div>
 
-      <!-- Board Toolbar Controls -->
-      <div class="board-toolbar">
-        <button class="toolbar-btn" id="demo-btn-flip" title="${i18n.t('demo.flip')}" aria-label="${i18n.t('demo.flip')}">
-          🔄 ${i18n.t('demo.flip')}
-        </button>
-        <button class="toolbar-btn" id="demo-btn-reset" title="${i18n.t('demo.reset')}" aria-label="${i18n.t('demo.reset')}">
-          ↺ ${i18n.t('demo.reset')}
-        </button>
-
-        <div class="toolbar-select-group">
-          <select class="toolbar-select" id="demo-select-piece-set" aria-label="${i18n.t('demo.pieceSet')}">
-            <option value="cburnett" ${state.pieceSet === 'cburnett' ? 'selected' : ''}>Pieces: cburnett</option>
-            <option value="merida" ${state.pieceSet === 'merida' ? 'selected' : ''}>Pieces: merida</option>
-            <option value="alpha" ${state.pieceSet === 'alpha' ? 'selected' : ''}>Pieces: alpha</option>
-          </select>
-        </div>
-
-        <div class="toolbar-select-group">
-          <select class="toolbar-select" id="demo-select-board-theme" aria-label="${i18n.t('demo.boardTheme')}">
-            <option value="classic" ${state.boardTheme === 'classic' ? 'selected' : ''}>${i18n.t('themes.classic')}</option>
-            <option value="wood" ${state.boardTheme === 'wood' ? 'selected' : ''}>${i18n.t('themes.wood')}</option>
-            <option value="ocean" ${state.boardTheme === 'ocean' ? 'selected' : ''}>${i18n.t('themes.ocean')}</option>
-            <option value="slate" ${state.boardTheme === 'slate' ? 'selected' : ''}>${i18n.t('themes.slate')}</option>
-          </select>
-        </div>
-
-        <button class="toolbar-btn ${state.showCoordinates ? 'active' : ''}" id="demo-btn-coords" title="${i18n.t('demo.coords')}" aria-label="${i18n.t('demo.coords')}">
-          🔤 ${i18n.t('demo.coords')}
-        </button>
-      </div>
+      <!-- Board Toolbar Controls (Reusable Anti-Slop Component) -->
+      <div class="demo-toolbar-container" id="demo-board-toolbar"></div>
     </section>
 
     <!-- 3 Modes Navigation Grid -->
@@ -308,7 +285,7 @@ function renderHomeScreen() {
         aria-label="${i18n.t('modes.standard.title')}: ${i18n.t('modes.standard.description')}"
       >
         <div class="mode-card-header">
-          <div class="mode-icon-box">♟️</div>
+          <div class="mode-icon-box">${icons.modeStandard}</div>
           <span class="mode-badge">${i18n.t('modes.standard.badge')}</span>
         </div>
         <div class="mode-card-body">
@@ -317,7 +294,8 @@ function renderHomeScreen() {
         </div>
         <div class="mode-card-footer">
           <button class="btn btn-primary" data-mode-btn="standard">
-            ${i18n.t('modes.standard.action')}
+            <span>${i18n.t('modes.standard.action')}</span>
+            ${icons.playArrow}
           </button>
         </div>
       </article>
@@ -331,7 +309,7 @@ function renderHomeScreen() {
         aria-label="${i18n.t('modes.sandbox.title')}: ${i18n.t('modes.sandbox.description')}"
       >
         <div class="mode-card-header">
-          <div class="mode-icon-box">⚙️</div>
+          <div class="mode-icon-box">${icons.modeSandbox}</div>
           <span class="mode-badge">${i18n.t('modes.sandbox.badge')}</span>
         </div>
         <div class="mode-card-body">
@@ -340,7 +318,8 @@ function renderHomeScreen() {
         </div>
         <div class="mode-card-footer">
           <button class="btn btn-primary" data-mode-btn="sandbox">
-            ${i18n.t('modes.sandbox.action')}
+            <span>${i18n.t('modes.sandbox.action')}</span>
+            ${icons.playArrow}
           </button>
         </div>
       </article>
@@ -354,7 +333,7 @@ function renderHomeScreen() {
         aria-label="${i18n.t('modes.multiplayer.title')}: ${i18n.t('modes.multiplayer.description')}"
       >
         <div class="mode-card-header">
-          <div class="mode-icon-box">👥</div>
+          <div class="mode-icon-box">${icons.modeMultiplayer}</div>
           <span class="mode-badge">${i18n.t('modes.multiplayer.badge')}</span>
         </div>
         <div class="mode-card-body">
@@ -363,7 +342,8 @@ function renderHomeScreen() {
         </div>
         <div class="mode-card-footer">
           <button class="btn btn-primary" data-mode-btn="multiplayer">
-            ${i18n.t('modes.multiplayer.action')}
+            <span>${i18n.t('modes.multiplayer.action')}</span>
+            ${icons.playArrow}
           </button>
         </div>
       </article>
@@ -392,6 +372,11 @@ function mountDemoBoard() {
 
   if (demoBoardRenderer) {
     demoBoardRenderer.destroy();
+    demoBoardRenderer = null;
+  }
+  if (demoBoardToolbar) {
+    demoBoardToolbar.destroy();
+    demoBoardToolbar = null;
   }
 
   demoBoardRenderer = new BoardRenderer(mountEl, {
@@ -413,8 +398,26 @@ function mountDemoBoard() {
     }
   });
 
+  const toolbarMount = document.getElementById('demo-board-toolbar');
+  if (toolbarMount) {
+    demoBoardToolbar = new BoardToolbar(toolbarMount, {
+      board: demoBoardRenderer,
+      showFlip: true,
+      showThemes: true,
+      showCoords: true,
+      showReset: true,
+      showZen: true,
+      onReset: () => {
+        demoChessInstance.reset();
+        demoBoardRenderer.setPosition(demoChessInstance.board());
+        demoBoardRenderer.clearHighlights();
+        demoBoardRenderer.clearMarkedSquares();
+        updateDemoStatus();
+      }
+    });
+  }
+
   updateDemoStatus();
-  attachDemoControls();
 }
 
 /**
@@ -518,60 +521,6 @@ function updateDemoStatus() {
     statusEl.textContent = `${i18n.t('standard.check')} ${turn} ${i18n.t('sandbox.sideToMove').toLowerCase()}`;
   } else {
     statusEl.textContent = demoChessInstance.turn() === 'w' ? i18n.t('standard.whiteTurn') : i18n.t('standard.blackTurn');
-  }
-}
-
-/**
- * Attach event listeners to Demo board toolbar controls
- */
-function attachDemoControls() {
-  const flipBtn = document.getElementById('demo-btn-flip');
-  if (flipBtn && demoBoardRenderer) {
-    flipBtn.addEventListener('click', () => {
-      demoBoardRenderer.flip();
-    });
-  }
-
-  const resetBtn = document.getElementById('demo-btn-reset');
-  if (resetBtn && demoBoardRenderer && demoChessInstance) {
-    resetBtn.addEventListener('click', () => {
-      demoChessInstance.reset();
-      demoBoardRenderer.setPosition(demoChessInstance.board());
-      demoBoardRenderer.clearHighlights();
-      demoBoardRenderer.clearMarkedSquares();
-      updateDemoStatus();
-    });
-  }
-
-  const pieceSetSelect = document.getElementById('demo-select-piece-set');
-  if (pieceSetSelect) {
-    pieceSetSelect.addEventListener('change', (e) => {
-      const set = e.target.value;
-      store.setPieceSet(set);
-      if (demoBoardRenderer) {
-        demoBoardRenderer.setPieceSet(set);
-      }
-    });
-  }
-
-  const boardThemeSelect = document.getElementById('demo-select-board-theme');
-  if (boardThemeSelect) {
-    boardThemeSelect.addEventListener('change', (e) => {
-      const theme = e.target.value;
-      store.setBoardTheme(theme);
-      if (demoBoardRenderer) {
-        demoBoardRenderer.setBoardTheme(theme);
-      }
-    });
-  }
-
-  const coordsBtn = document.getElementById('demo-btn-coords');
-  if (coordsBtn && demoBoardRenderer) {
-    coordsBtn.addEventListener('click', () => {
-      const isShowing = store.toggleCoordinates();
-      demoBoardRenderer.setShowCoordinates(isShowing);
-      coordsBtn.classList.toggle('active', isShowing);
-    });
   }
 }
 

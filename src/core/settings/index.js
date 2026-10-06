@@ -7,6 +7,7 @@
 
 import { store } from '../store/index.js';
 import { i18n } from '../i18n/index.js';
+import { icons } from '../icons/index.js';
 import './settings.css';
 
 const BASE_URL = import.meta.env?.BASE_URL || '/';
@@ -92,7 +93,7 @@ function renderModalContent() {
       <!-- Header -->
       <div class="settings-header">
         <h3 class="settings-title" id="settings-dialog-title">
-          <span>⚙️</span>
+          <span class="settings-title-icon">${icons.settings}</span>
           <span>${i18n.t('settings.title')}</span>
         </h3>
         <button
@@ -101,7 +102,7 @@ function renderModalContent() {
           aria-label="${i18n.t('settings.close')}"
           title="${i18n.t('settings.close')}"
         >
-          ✕
+          ${icons.close}
         </button>
       </div>
 
@@ -116,7 +117,7 @@ function renderModalContent() {
               data-set-locale="en"
               aria-pressed="${currentLocale === 'en'}"
             >
-              <span>🇺🇸</span>
+              <span class="settings-lang-badge">EN</span>
               <span>English</span>
             </button>
             <button
@@ -124,7 +125,7 @@ function renderModalContent() {
               data-set-locale="vi"
               aria-pressed="${currentLocale === 'vi'}"
             >
-              <span>🇻🇳</span>
+              <span class="settings-lang-badge">VI</span>
               <span>Tiếng Việt</span>
             </button>
           </div>
@@ -139,7 +140,7 @@ function renderModalContent() {
               data-set-theme="light"
               aria-pressed="${state.theme === 'light'}"
             >
-              <span>☀️</span>
+              <span class="settings-icon-wrap">${icons.sun}</span>
               <span>${i18n.t('settings.themeLight')}</span>
             </button>
             <button
@@ -147,7 +148,7 @@ function renderModalContent() {
               data-set-theme="dark"
               aria-pressed="${state.theme === 'dark'}"
             >
-              <span>🌙</span>
+              <span class="settings-icon-wrap">${icons.moon}</span>
               <span>${i18n.t('settings.themeDark')}</span>
             </button>
           </div>
@@ -253,7 +254,7 @@ function renderModalContent() {
               data-set-sound="on"
               aria-pressed="${!state.soundMuted}"
             >
-              <span>🔊</span>
+              <span class="settings-icon-wrap">${icons.volumeOn}</span>
               <span>${i18n.t('settings.soundOn')}</span>
             </button>
             <button
@@ -261,7 +262,7 @@ function renderModalContent() {
               data-set-sound="off"
               aria-pressed="${state.soundMuted}"
             >
-              <span>🔇</span>
+              <span class="settings-icon-wrap">${icons.volumeMute}</span>
               <span>${i18n.t('settings.soundOff')}</span>
             </button>
           </div>
@@ -354,22 +355,21 @@ function attachModalEvents() {
     });
   });
 
-  // Coordinates toggle
+  // Coordinates toggle (clean handler avoiding double-toggle)
   const coordsInput = document.getElementById('input-toggle-coords');
   const coordsRow = document.getElementById('row-toggle-coords');
 
-  const toggleCoords = () => {
-    const isShowing = store.toggleCoordinates();
-    if (coordsInput) coordsInput.checked = isShowing;
-  };
-
-  coordsRow?.addEventListener('click', (e) => {
-    if (e.target !== coordsInput) {
-      toggleCoords();
-    }
-  });
-
   coordsInput?.addEventListener('change', () => {
     store.setCoordinates(coordsInput.checked);
+    renderModalContent();
+  });
+
+  coordsRow?.addEventListener('click', (e) => {
+    if (e.target.closest('.settings-switch')) return;
+    if (coordsInput) {
+      coordsInput.checked = !coordsInput.checked;
+      store.setCoordinates(coordsInput.checked);
+      renderModalContent();
+    }
   });
 }

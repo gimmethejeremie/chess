@@ -15,6 +15,8 @@
  */
 
 import { BoardRenderer } from '../../core/board/index.js';
+import { BoardToolbar } from '../../core/board/boardToolbar.js';
+import { icons } from '../../core/icons/index.js';
 import { soundManager } from '../../core/sounds/index.js';
 import { store } from '../../core/store/index.js';
 import { storage } from '../../core/storage/index.js';
@@ -43,6 +45,7 @@ export class SandboxGame {
   constructor(container) {
     this.container = container;
     this.board = null;
+    this.boardToolbar = null;
 
     // Board position Map: square -> 'wP'
     this.position = new Map();
@@ -66,6 +69,7 @@ export class SandboxGame {
 
     // Active store unsubscribe listener
     this.storeUnsub = null;
+    this.i18nUnsub = null;
 
     // Initialize with standard starting position
     this.loadFenInternal(STARTING_FEN, false);
@@ -78,12 +82,28 @@ export class SandboxGame {
     this.pushSnapshot();
     this.updateUI();
 
+    // Mount BoardToolbar
+    const toolbarMount = document.getElementById('sb-board-toolbar');
+    if (toolbarMount && this.board) {
+      this.boardToolbar = new BoardToolbar(toolbarMount, {
+        board: this.board,
+        showFlip: true,
+        showThemes: true,
+        showCoords: true,
+        showReset: false,
+        showZen: true
+      });
+    }
+
     // Subscribe to store updates for pieceSet, boardTheme, coordinates
     this.storeUnsub = store.subscribe((state) => {
       if (this.board) {
         this.board.setPieceSet(state.pieceSet);
         this.board.setBoardTheme(state.boardTheme);
         this.board.setShowCoordinates(state.showCoordinates);
+      }
+      if (this.boardToolbar) {
+        this.boardToolbar.updateState();
       }
       this.renderPaletteIcons();
     });
@@ -103,6 +123,10 @@ export class SandboxGame {
       this.i18nUnsub();
       this.i18nUnsub = null;
     }
+    if (this.boardToolbar) {
+      this.boardToolbar.destroy();
+      this.boardToolbar = null;
+    }
     if (this.board) {
       this.board.destroy();
       this.board = null;
@@ -114,7 +138,7 @@ export class SandboxGame {
     const backBtn = document.getElementById('sb-back-home');
     if (backBtn) {
       backBtn.title = i18n.t('sandbox.back');
-      backBtn.textContent = `← ${i18n.t('sandbox.back')}`;
+      backBtn.innerHTML = `${icons.back}<span>${i18n.t('sandbox.back')}</span>`;
     }
     const titleEl = document.querySelector('.sandbox-title');
     if (titleEl) titleEl.textContent = i18n.t('sandbox.title');
@@ -122,54 +146,49 @@ export class SandboxGame {
     const undoBtn = document.getElementById('sb-btn-undo');
     if (undoBtn) {
       undoBtn.title = i18n.t('sandbox.undo');
-      undoBtn.textContent = `↶ ${i18n.t('sandbox.undo')}`;
+      undoBtn.innerHTML = `${icons.undo}<span>${i18n.t('sandbox.undo')}</span>`;
     }
     const redoBtn = document.getElementById('sb-btn-redo');
     if (redoBtn) {
       redoBtn.title = i18n.t('sandbox.redo');
-      redoBtn.textContent = `↷ ${i18n.t('sandbox.redo')}`;
+      redoBtn.innerHTML = `${icons.redo}<span>${i18n.t('sandbox.redo')}</span>`;
     }
     const clearBtn = document.getElementById('sb-btn-clear');
     if (clearBtn) {
       clearBtn.title = i18n.t('sandbox.clear');
-      clearBtn.textContent = `🗑️ ${i18n.t('sandbox.clear')}`;
+      clearBtn.innerHTML = `${icons.trash}<span>${i18n.t('sandbox.clear')}</span>`;
     }
-    const resetBtn = document.getElementById('sb-btn-reset');
+    const resetBtn = document.getElementById('sb-btn-reset-start');
     if (resetBtn) {
       resetBtn.title = i18n.t('sandbox.startingPos');
-      resetBtn.textContent = `↺ ${i18n.t('sandbox.startingPos')}`;
+      resetBtn.innerHTML = `${icons.chessKnight}<span>${i18n.t('sandbox.startingPos')}</span>`;
     }
-    const eraserBtn = document.getElementById('sb-btn-eraser');
+    const emptyBtn = document.getElementById('sb-btn-empty');
+    if (emptyBtn) {
+      emptyBtn.title = i18n.t('sandbox.emptyBoard');
+      emptyBtn.innerHTML = `${icons.emptyBoard}<span>${i18n.t('sandbox.emptyBoard')}</span>`;
+    }
+    const eraserBtn = document.getElementById('tool-eraser');
     if (eraserBtn) {
       eraserBtn.title = i18n.t('sandbox.eraser');
-      eraserBtn.innerHTML = `🧹 <span class="btn-label">${i18n.t('sandbox.eraser')}</span>`;
+      eraserBtn.innerHTML = `${icons.eraser}<span class="btn-label">${i18n.t('sandbox.eraser')}</span>`;
     }
-    const drawBtn = document.getElementById('sb-btn-draw-arrow');
+    const drawBtn = document.getElementById('tool-arrow');
     if (drawBtn) {
       drawBtn.title = i18n.t('sandbox.drawMode');
-      drawBtn.innerHTML = `↗️ <span class="btn-label">${i18n.t('sandbox.drawMode')}</span>`;
+      drawBtn.innerHTML = `${icons.arrowTool}<span class="btn-label">${i18n.t('sandbox.drawMode')}</span>`;
     }
-    const clearArrowsBtn = document.getElementById('sb-btn-clear-arrows');
+    const clearArrowsBtn = document.getElementById('tool-clear-arrows');
     if (clearArrowsBtn) {
       clearArrowsBtn.title = i18n.t('sandbox.clearAnnotations');
-      clearArrowsBtn.innerHTML = `❌ <span class="btn-label">${i18n.t('sandbox.clearAnnotations')}</span>`;
-    }
-    const flipBtn = document.getElementById('sb-btn-flip');
-    if (flipBtn) {
-      flipBtn.title = i18n.t('sandbox.flip');
-      flipBtn.textContent = `🔄 ${i18n.t('sandbox.flip')}`;
-    }
-    const coordsBtn = document.getElementById('sb-btn-coords');
-    if (coordsBtn) {
-      coordsBtn.title = i18n.t('sandbox.coords');
-      coordsBtn.textContent = `🔤 ${i18n.t('sandbox.coords')}`;
+      clearArrowsBtn.innerHTML = `${icons.clearTrash}<span class="btn-label">${i18n.t('sandbox.clearAnnotations')}</span>`;
     }
     const copyFenBtn = document.getElementById('sb-btn-copy-fen');
-    if (copyFenBtn) copyFenBtn.textContent = `📋 ${i18n.t('sandbox.copyFen')}`;
+    if (copyFenBtn) copyFenBtn.innerHTML = `${icons.copy}<span>${i18n.t('sandbox.copyFen')}</span>`;
     const loadFenBtn = document.getElementById('sb-btn-load-fen');
-    if (loadFenBtn) loadFenBtn.textContent = `📂 ${i18n.t('sandbox.loadFen')}`;
+    if (loadFenBtn) loadFenBtn.innerHTML = `${icons.folderOpen}<span>${i18n.t('sandbox.loadFen')}</span>`;
     const saveBtn = document.getElementById('sb-btn-save-pos');
-    if (saveBtn) saveBtn.textContent = `💾 ${i18n.t('sandbox.saveBtn')}`;
+    if (saveBtn) saveBtn.innerHTML = `${icons.save}<span>${i18n.t('sandbox.saveBtn')}</span>`;
 
     this.renderSavedPositions();
   }
@@ -181,18 +200,21 @@ export class SandboxGame {
         <header class="sandbox-header">
           <div class="sandbox-header-left">
             <button class="mode-back-btn" id="sb-back-home" title="${i18n.t('sandbox.back')}">
-              ← ${i18n.t('sandbox.back')}
+              ${icons.back}
+              <span>${i18n.t('sandbox.back')}</span>
             </button>
             <h2 class="sandbox-title">${i18n.t('sandbox.title')}</h2>
-            <span class="sandbox-badge">No Rules / Editor</span>
+            <span class="sandbox-badge">Free Play / Editor</span>
           </div>
 
           <div style="display: flex; gap: 0.5rem;">
             <button class="btn btn-secondary" id="sb-btn-undo" title="${i18n.t('sandbox.undo')}">
-              ↶ ${i18n.t('sandbox.undo')}
+              ${icons.undo}
+              <span>${i18n.t('sandbox.undo')}</span>
             </button>
             <button class="btn btn-secondary" id="sb-btn-redo" title="${i18n.t('sandbox.redo')}">
-              ↷ ${i18n.t('sandbox.redo')}
+              ${icons.redo}
+              <span>${i18n.t('sandbox.redo')}</span>
             </button>
           </div>
         </header>
@@ -232,13 +254,16 @@ export class SandboxGame {
               <!-- Palette Tools (Eraser & Arrow drawing mode) -->
               <div class="palette-tools-row">
                 <button class="tool-chip-btn danger" id="tool-eraser" title="${i18n.t('sandbox.eraser')}">
-                  🗑️ ${i18n.t('sandbox.eraser')}
+                  ${icons.eraser}
+                  <span class="btn-label">${i18n.t('sandbox.eraser')}</span>
                 </button>
                 <button class="tool-chip-btn" id="tool-arrow" title="${i18n.t('sandbox.drawMode')}">
-                  🏹 ${i18n.t('sandbox.drawMode')}
+                  ${icons.arrowTool}
+                  <span class="btn-label">${i18n.t('sandbox.drawMode')}</span>
                 </button>
                 <button class="tool-chip-btn" id="tool-clear-arrows" title="${i18n.t('sandbox.clearAnnotations')}">
-                  🧹 ${i18n.t('sandbox.clearAnnotations')}
+                  ${icons.clearTrash}
+                  <span class="btn-label">${i18n.t('sandbox.clearAnnotations')}</span>
                 </button>
               </div>
             </div>
@@ -246,22 +271,22 @@ export class SandboxGame {
             <!-- Board Mount -->
             <div id="sb-board-mount" style="width: 100%;"></div>
 
+            <!-- Reactive Board Control Bar -->
+            <div id="sb-board-toolbar" class="sb-board-toolbar-wrap"></div>
+
             <!-- Board Quick Action Toolbar -->
             <div class="sandbox-board-actions">
-              <button class="toolbar-btn" id="sb-btn-flip" title="${i18n.t('sandbox.flip')}">
-                🔄 ${i18n.t('sandbox.flip')}
-              </button>
-              <button class="toolbar-btn ${store.getState().showCoordinates ? 'active' : ''}" id="sb-btn-coords" title="${i18n.t('sandbox.coords')}">
-                🔤 ${i18n.t('sandbox.coords')}
-              </button>
               <button class="toolbar-btn" id="sb-btn-reset-start" title="${i18n.t('sandbox.startingPos')}">
-                ♟️ ${i18n.t('sandbox.startingPos')}
+                ${icons.chessKnight}
+                <span>${i18n.t('sandbox.startingPos')}</span>
               </button>
               <button class="toolbar-btn" id="sb-btn-empty" title="${i18n.t('sandbox.emptyBoard')}">
-                ⬜ ${i18n.t('sandbox.emptyBoard')}
+                ${icons.emptyBoard}
+                <span>${i18n.t('sandbox.emptyBoard')}</span>
               </button>
               <button class="toolbar-btn danger" id="sb-btn-clear" title="${i18n.t('sandbox.clear')}">
-                ❌ ${i18n.t('sandbox.clear')}
+                ${icons.trash}
+                <span>${i18n.t('sandbox.clear')}</span>
               </button>
             </div>
           </div>
@@ -270,17 +295,19 @@ export class SandboxGame {
           <aside class="sandbox-sidebar">
             <!-- Position Attributes -->
             <div class="sandbox-card">
-              <h3 class="sandbox-card-title">⚙️ ${i18n.t('sandbox.settingsTitle')}</h3>
+              <h3 class="sandbox-card-title">${icons.settings} <span>${i18n.t('sandbox.settingsTitle')}</span></h3>
 
               <!-- Side to Move -->
               <div class="attr-group">
                 <label class="attr-label">${i18n.t('sandbox.sideToMove')}</label>
                 <div class="pill-toggle-group">
                   <button class="pill-option active" id="turn-btn-w" data-turn="w">
-                    ⚪ ${i18n.t('sandbox.white')}
+                    <span class="color-dot white"></span>
+                    <span>${i18n.t('sandbox.white')}</span>
                   </button>
                   <button class="pill-option" id="turn-btn-b" data-turn="b">
-                    ⚫ ${i18n.t('sandbox.black')}
+                    <span class="color-dot black"></span>
+                    <span>${i18n.t('sandbox.black')}</span>
                   </button>
                 </div>
               </div>
@@ -317,11 +344,12 @@ export class SandboxGame {
 
             <!-- FEN Import / Export -->
             <div class="sandbox-card">
-              <h3 class="sandbox-card-title">📝 ${i18n.t('sandbox.fenTitle')}</h3>
+              <h3 class="sandbox-card-title">${icons.pgn} <span>${i18n.t('sandbox.fenTitle')}</span></h3>
               <textarea class="fen-textarea" id="sb-fen-display" readonly rows="2"></textarea>
               <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                 <button class="btn btn-secondary" id="sb-btn-copy-fen" style="flex: 1;">
-                  📋 ${i18n.t('sandbox.copyFen')}
+                  ${icons.copy}
+                  <span>${i18n.t('sandbox.copyFen')}</span>
                 </button>
               </div>
 
@@ -329,18 +357,20 @@ export class SandboxGame {
                 <label class="attr-label">${i18n.t('sandbox.loadFen')}</label>
                 <input type="text" class="toolbar-select" id="sb-load-fen-input" placeholder="${i18n.t('sandbox.pasteFenPlaceholder')}" style="width: 100%; box-sizing: border-box;" />
                 <button class="btn btn-primary" id="sb-btn-load-fen" style="margin-top: 0.5rem; width: 100%;">
-                  📥 ${i18n.t('sandbox.loadFen')}
+                  ${icons.folderOpen}
+                  <span>${i18n.t('sandbox.loadFen')}</span>
                 </button>
               </div>
             </div>
 
             <!-- Saved Positions Manager -->
             <div class="sandbox-card">
-              <h3 class="sandbox-card-title">💾 ${i18n.t('sandbox.savedTitle')}</h3>
+              <h3 class="sandbox-card-title">${icons.save} <span>${i18n.t('sandbox.savedTitle')}</span></h3>
               <div class="save-pos-input-group">
                 <input type="text" class="toolbar-select" id="sb-save-name-input" placeholder="${i18n.t('sandbox.namePlaceholder')}" style="flex: 1;" />
                 <button class="btn btn-primary" id="sb-btn-save-pos" style="width: auto; padding: 0 1rem;">
-                  ${i18n.t('sandbox.saveBtn')}
+                  ${icons.save}
+                  <span>${i18n.t('sandbox.saveBtn')}</span>
                 </button>
               </div>
 

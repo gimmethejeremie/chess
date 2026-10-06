@@ -225,8 +225,8 @@ export class BoardRenderer {
           squareEl.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              if (this.onSquareClick) {
-                this.onSquareClick({ square, piece: this.position.get(square) || null });
+              if (this.callbacks?.onSquareClick) {
+                this.callbacks.onSquareClick({ square, piece: this.position.get(square) || null, event: e });
               }
             }
           });

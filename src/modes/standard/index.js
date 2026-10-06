@@ -14,6 +14,8 @@
 
 import { Chess } from 'chess.js';
 import { BoardRenderer } from '../../core/board/index.js';
+import { BoardToolbar } from '../../core/board/boardToolbar.js';
+import { icons } from '../../core/icons/index.js';
 import { soundManager } from '../../core/sounds/index.js';
 import { store } from '../../core/store/index.js';
 import { i18n } from '../../core/i18n/index.js';
@@ -29,6 +31,8 @@ export class StandardChessGame {
     this.container = container;
     this.chess = new Chess();
     this.board = null;
+    this.boardToolbar = null;
+    this.keyHandler = null;
 
     // History snapshots for review: [{ index: 0, fen: '', san: '', lastMove: null }]
     this.historySnapshots = [
@@ -56,6 +60,7 @@ export class StandardChessGame {
 
     // Active unsubscriber
     this.storeUnsub = null;
+    this.i18nUnsub = null;
   }
 
   mount() {
@@ -63,12 +68,27 @@ export class StandardChessGame {
     this.initBoard();
     this.updateUI();
 
+    // Mount BoardToolbar
+    const toolbarMount = document.getElementById('std-board-toolbar');
+    if (toolbarMount && this.board) {
+      this.boardToolbar = new BoardToolbar(toolbarMount, {
+        board: this.board,
+        showFlip: true,
+        showThemes: true,
+        showCoords: true,
+        showZen: true
+      });
+    }
+
     // Subscribe to store updates for pieceSet, boardTheme, coordinates
     this.storeUnsub = store.subscribe((state) => {
       if (this.board) {
         this.board.setPieceSet(state.pieceSet);
         this.board.setBoardTheme(state.boardTheme);
         this.board.setShowCoordinates(state.showCoordinates);
+      }
+      if (this.boardToolbar) {
+        this.boardToolbar.updateState();
       }
     });
 
@@ -79,6 +99,10 @@ export class StandardChessGame {
   }
 
   destroy() {
+    if (this.keyHandler) {
+      window.removeEventListener('keydown', this.keyHandler);
+      this.keyHandler = null;
+    }
     if (this.storeUnsub) {
       this.storeUnsub();
       this.storeUnsub = null;
@@ -86,6 +110,10 @@ export class StandardChessGame {
     if (this.i18nUnsub) {
       this.i18nUnsub();
       this.i18nUnsub = null;
+    }
+    if (this.boardToolbar) {
+      this.boardToolbar.destroy();
+      this.boardToolbar = null;
     }
     if (this.board) {
       this.board.destroy();
@@ -98,7 +126,7 @@ export class StandardChessGame {
     const backBtn = document.getElementById('std-back-home');
     if (backBtn) {
       backBtn.title = i18n.t('standard.back');
-      backBtn.textContent = `← ${i18n.t('standard.back')}`;
+      backBtn.innerHTML = `${icons.back}<span>${i18n.t('standard.back')}</span>`;
     }
     const titleEl = document.querySelector('.standard-mode-title');
     if (titleEl) titleEl.textContent = i18n.t('standard.title');
@@ -108,8 +136,8 @@ export class StandardChessGame {
     const resumeBtn = document.getElementById('std-btn-resume-live');
     if (resumeBtn) resumeBtn.textContent = `${i18n.t('standard.liveBtn')} »`;
 
-    const movesHeader = document.querySelector('.side-panel-header span:first-child');
-    if (movesHeader) movesHeader.textContent = `📋 ${i18n.t('standard.moves')}`;
+    const movesHeader = document.querySelector('.side-panel-header .side-panel-title');
+    if (movesHeader) movesHeader.textContent = i18n.t('standard.moves');
 
     const emptyMoves = document.getElementById('std-empty-moves');
     if (emptyMoves) emptyMoves.textContent = i18n.t('standard.noMoves');
@@ -117,29 +145,29 @@ export class StandardChessGame {
     const undoBtn = document.getElementById('std-btn-undo');
     if (undoBtn) {
       undoBtn.title = i18n.t('standard.undo');
-      undoBtn.textContent = `↶ ${i18n.t('standard.undo')}`;
+      undoBtn.innerHTML = `${icons.undo}<span>${i18n.t('standard.undo')}</span>`;
     }
 
     const redoBtn = document.getElementById('std-btn-redo');
     if (redoBtn) {
       redoBtn.title = i18n.t('standard.redo');
-      redoBtn.textContent = `↷ ${i18n.t('standard.redo')}`;
+      redoBtn.innerHTML = `${icons.redo}<span>${i18n.t('standard.redo')}</span>`;
     }
 
     const newBtn = document.getElementById('std-action-new');
-    if (newBtn) newBtn.textContent = `↺ ${i18n.t('standard.newGame')}`;
+    if (newBtn) newBtn.innerHTML = `${icons.reset}<span>${i18n.t('standard.newGame')}</span>`;
 
     const flipBtn = document.getElementById('std-action-flip');
-    if (flipBtn) flipBtn.textContent = `🔄 ${i18n.t('standard.flip')}`;
+    if (flipBtn) flipBtn.innerHTML = `${icons.flip}<span>${i18n.t('standard.flip')}</span>`;
 
     const drawBtn = document.getElementById('std-action-draw');
-    if (drawBtn) drawBtn.textContent = `🤝 ${i18n.t('standard.offerDraw')}`;
+    if (drawBtn) drawBtn.innerHTML = `${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span>`;
 
     const resignBtn = document.getElementById('std-action-resign');
-    if (resignBtn) resignBtn.textContent = `🏳️ ${i18n.t('standard.resign')}`;
+    if (resignBtn) resignBtn.innerHTML = `${icons.flag}<span>${i18n.t('standard.resign')}</span>`;
 
     const pgnBtn = document.getElementById('std-action-pgn');
-    if (pgnBtn) pgnBtn.textContent = `📝 ${i18n.t('standard.pgnFen')}`;
+    if (pgnBtn) pgnBtn.innerHTML = `${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span>`;
   }
 
   renderLayout() {
@@ -149,7 +177,8 @@ export class StandardChessGame {
         <header class="standard-header">
           <div class="standard-header-left">
             <button class="mode-back-btn" id="std-back-home" title="${i18n.t('standard.back')}">
-              ← ${i18n.t('standard.back')}
+              ${icons.back}
+              <span>${i18n.t('standard.back')}</span>
             </button>
             <h2 class="standard-mode-title">${i18n.t('standard.title')}</h2>
           </div>
@@ -182,6 +211,9 @@ export class StandardChessGame {
               </div>
             </div>
 
+            <!-- Live Board Toolbar Component Mount -->
+            <div id="std-board-toolbar" class="std-board-toolbar-wrap"></div>
+
             <!-- Review Notice Banner (visible during history review) -->
             <div class="review-notice-banner" id="std-review-notice" style="display: none;">
               <span id="std-review-text">${i18n.t('standard.liveNotice')}</span>
@@ -192,7 +224,7 @@ export class StandardChessGame {
           <!-- Side Panel Column -->
           <aside class="standard-side-panel">
             <div class="side-panel-header">
-              <span>📋 ${i18n.t('standard.moves')}</span>
+              <span class="side-panel-title">${i18n.t('standard.moves')}</span>
               <span id="std-move-count" style="font-weight: 500; font-size: 0.8rem; color: var(--text-secondary);">0 moves</span>
             </div>
 
@@ -206,21 +238,25 @@ export class StandardChessGame {
 
             <!-- History Navigation Buttons -->
             <div class="history-nav-toolbar">
-              <button class="nav-btn" id="std-nav-first" title="Start (|<<)">|◀</button>
-              <button class="nav-btn" id="std-nav-prev" title="Previous (<)">◀</button>
-              <button class="nav-btn" id="std-nav-next" title="Next (>)">▶</button>
-              <button class="nav-btn" id="std-nav-last" title="Latest (>>)">▶|</button>
-              <button class="nav-btn" id="std-btn-undo" title="${i18n.t('standard.undo')}">↶ ${i18n.t('standard.undo')}</button>
-              <button class="nav-btn" id="std-btn-redo" title="${i18n.t('standard.redo')}">↷ ${i18n.t('standard.redo')}</button>
+              <div class="history-step-group" role="group" aria-label="Move History Navigation">
+                <button class="nav-btn" id="std-nav-first" title="First move" aria-label="First move">${icons.first}</button>
+                <button class="nav-btn" id="std-nav-prev" title="Previous move (Left arrow)" aria-label="Previous move">${icons.prev}</button>
+                <button class="nav-btn" id="std-nav-next" title="Next move (Right arrow)" aria-label="Next move">${icons.next}</button>
+                <button class="nav-btn" id="std-nav-last" title="Latest move" aria-label="Latest move">${icons.last}</button>
+              </div>
+              <div class="history-undo-group" role="group" aria-label="Undo and Redo">
+                <button class="nav-btn" id="std-btn-undo" title="${i18n.t('standard.undo')}" aria-label="${i18n.t('standard.undo')}">${icons.undo}<span>${i18n.t('standard.undo')}</span></button>
+                <button class="nav-btn" id="std-btn-redo" title="${i18n.t('standard.redo')}" aria-label="${i18n.t('standard.redo')}">${icons.redo}<span>${i18n.t('standard.redo')}</span></button>
+              </div>
             </div>
 
             <!-- Game Actions Toolbar -->
             <div class="game-actions-panel">
-              <button class="action-btn" id="std-action-new">↺ ${i18n.t('standard.newGame')}</button>
-              <button class="action-btn" id="std-action-flip">🔄 ${i18n.t('standard.flip')}</button>
-              <button class="action-btn" id="std-action-draw">🤝 ${i18n.t('standard.offerDraw')}</button>
-              <button class="action-btn danger" id="std-action-resign">🏳️ ${i18n.t('standard.resign')}</button>
-              <button class="action-btn" id="std-action-pgn" style="grid-column: span 2;">📝 ${i18n.t('standard.pgnFen')}</button>
+              <button class="action-btn" id="std-action-new">${icons.reset}<span>${i18n.t('standard.newGame')}</span></button>
+              <button class="action-btn" id="std-action-flip">${icons.flip}<span>${i18n.t('standard.flip')}</span></button>
+              <button class="action-btn" id="std-action-draw">${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span></button>
+              <button class="action-btn danger" id="std-action-resign">${icons.flag}<span>${i18n.t('standard.resign')}</span></button>
+              <button class="action-btn" id="std-action-pgn" style="grid-column: span 2;">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
             </div>
           </aside>
         </div>
@@ -269,6 +305,19 @@ export class StandardChessGame {
         store.setMode(null);
       });
     }
+
+    // Keyboard navigation (Arrow keys)
+    this.keyHandler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        this.jumpToHistory(this.reviewIndex - 1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        this.jumpToHistory(this.reviewIndex + 1);
+      }
+    };
+    window.addEventListener('keydown', this.keyHandler);
 
     // Resume live game
     const resumeLiveBtn = document.getElementById('std-btn-resume-live');
