@@ -36,16 +36,21 @@ export const store = {
   },
 
   setTheme(theme) {
-    if (state.theme !== theme) {
-      state.theme = theme;
-      storage.set(STORAGE_KEYS.THEME, theme);
-      this.applyTheme(theme);
+    if (theme !== 'dark' && theme !== 'light') return;
+    const changed = state.theme !== theme;
+    state.theme = theme;
+    storage.set(STORAGE_KEYS.THEME, theme);
+    this.applyTheme(theme);
+    if (changed) {
       this.notify();
     }
   },
 
   toggleTheme() {
-    const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
+    // Check actual DOM attribute or fallback to state.theme
+    const currentDomTheme = (typeof document !== 'undefined' && document.documentElement?.getAttribute('data-theme'))
+      || state.theme;
+    const nextTheme = currentDomTheme === 'dark' ? 'light' : 'dark';
     this.setTheme(nextTheme);
     return nextTheme;
   },
@@ -109,3 +114,7 @@ export const store = {
     }
   }
 };
+
+// Immediately apply persisted theme upon module load
+store.applyTheme(state.theme);
+

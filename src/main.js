@@ -25,6 +25,9 @@ function renderApp() {
   const currentLocale = i18n.getLocale();
   const currentTheme = state.theme;
 
+  // Ensure DOM attribute data-theme always reflects current store theme
+  store.applyTheme(currentTheme);
+
   const langLabel = currentLocale === 'en' ? 'Tiếng Việt' : 'English';
   const themeLabel = currentTheme === 'dark' ? i18n.t('app.themeLight') : i18n.t('app.themeDark');
   const soundTitle = state.soundMuted ? i18n.t('demo.muted') : i18n.t('demo.unmuted');

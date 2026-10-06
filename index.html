@@ -5,7 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Chess Playground</title>
     <meta name="description" content="Personal chess playground for standard chess, sandbox experiments, and multiplayer matches." />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♞</text></svg>" />
+    <script>
+      (function() {
+        try {
+          var prefix = 'chess_playground_';
+          var stored = localStorage.getItem(prefix + 'theme');
+          var theme = stored ? JSON.parse(stored) : null;
+          if (!theme || (theme !== 'dark' && theme !== 'light')) {
+            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            theme = prefersDark ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
     <link rel="stylesheet" href="./src/style.css" />
   </head>
   <body>

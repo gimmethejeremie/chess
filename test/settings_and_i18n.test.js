@@ -44,6 +44,40 @@ describe('Settings and i18n Internationalization', () => {
     expect(storage.get('theme')).toBe('light');
   });
 
+  it('store toggles theme accurately on single click and synchronizes document data-theme', () => {
+    let currentThemeAttr = 'light';
+    const originalDoc = globalThis.document;
+    globalThis.document = {
+      documentElement: {
+        getAttribute: () => currentThemeAttr,
+        setAttribute: (attr, val) => {
+          if (attr === 'data-theme') currentThemeAttr = val;
+        }
+      }
+    };
+
+    try {
+      // Start from dark mode
+      store.setTheme('dark');
+      expect(currentThemeAttr).toBe('dark');
+      expect(store.getState().theme).toBe('dark');
+
+      // Click 1: toggle to light
+      const themeAfterClick1 = store.toggleTheme();
+      expect(themeAfterClick1).toBe('light');
+      expect(currentThemeAttr).toBe('light');
+      expect(store.getState().theme).toBe('light');
+
+      // Click 2: toggle back to dark
+      const themeAfterClick2 = store.toggleTheme();
+      expect(themeAfterClick2).toBe('dark');
+      expect(currentThemeAttr).toBe('dark');
+      expect(store.getState().theme).toBe('dark');
+    } finally {
+      globalThis.document = originalDoc;
+    }
+  });
+
   it('store updates pieceSet and persists to storage', () => {
     store.setPieceSet('merida');
     expect(store.getState().pieceSet).toBe('merida');
