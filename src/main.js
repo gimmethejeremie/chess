@@ -63,7 +63,7 @@ function renderApp() {
 
       <!-- Footer -->
       <footer class="app-footer">
-        <p>Chess Playground &bull; Personal &amp; Non-commercial &bull; Mobile-First &bull; <a href="https://github.com/gimmethejeremie/chess" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">GitHub</a></p>
+        <p><a href="https://github.com/gimmethejeremie/chess" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">GitHub</a></p>
       </footer>
     `;
 
