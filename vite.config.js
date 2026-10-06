@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   // Vite base set to the repo name for GitHub Pages
-  base: process.env.NODE_ENV === 'production' ? '/life-os-bot/' : '/',
+  base: process.env.VITE_BASE || (process.env.NODE_ENV === 'production' ? '/chess/' : '/'),
   build: {
     outDir: 'dist',
     assetsDir: 'assets'

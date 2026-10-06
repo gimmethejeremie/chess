@@ -89,8 +89,8 @@
 ### 2. Installation & Run
 ```bash
 # Clone the repository
-git clone https://github.com/gimmethejeremie/life-os-bot.git
-cd life-os-bot
+git clone https://github.com/gimmethejeremie/chess.git
+cd chess
 
 # Install dependencies
 npm install
@@ -111,7 +111,7 @@ npm test
 # Build for production
 npm run build
 
-# Preview production build locally (http://localhost:4173/life-os-bot/)
+# Preview production build locally (http://localhost:4173/chess/)
 npm run preview
 ```
 
@@ -191,20 +191,20 @@ To allow GitHub Actions to build the site with online multiplayer support, add y
 
 ## Live URL Format
 
-Since the repository is named `life-os-bot`, the deployed website will be accessible at:
+Since the repository is named `chess`, the deployed website will be accessible at:
 ```text
-https://gimmethejeremie.github.io/life-os-bot/
+https://gimmethejeremie.github.io/chess/
 ```
 
 Direct room joining link format:
 ```text
-https://gimmethejeremie.github.io/life-os-bot/?room=ABC123
+https://gimmethejeremie.github.io/chess/?room=ABC123
 ```
 
 ---
 
 ## Asset Attributions
-All piece SVGs and sound effects are 100% free and open-source. For details regarding sources, creators, and licenses (CC-BY-SA, CC0, MIT), refer to [ATTRIBUTIONS.md](file:///d:/LifeOS/ATTRIBUTIONS.md).
+All piece SVGs and sound effects are 100% free and open-source. For details regarding sources, creators, and licenses (CC-BY-SA, CC0, MIT), refer to [ATTRIBUTIONS.md](./ATTRIBUTIONS.md).
 
 ---
 
@@ -296,9 +296,9 @@ npm run preview
 
 Trang web sau khi phát hành trên GitHub Pages sẽ có địa chỉ:
 ```text
-https://gimmethejeremie.github.io/life-os-bot/
+https://gimmethejeremie.github.io/chess/
 ```
 Liên kết vào thẳng phòng chơi online:
 ```text
-https://gimmethejeremie.github.io/life-os-bot/?room=ABC123
+https://gimmethejeremie.github.io/chess/?room=ABC123
 ```
