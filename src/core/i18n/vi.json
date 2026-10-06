@@ -14,6 +14,7 @@
     "pieceSet": "Bộ quân",
     "boardTheme": "Màu bàn",
     "coords": "Tọa độ",
+    "focus": "Tập trung",
     "sound": "Âm thanh",
     "muted": "Tắt tiếng",
     "unmuted": "Bật tiếng"
@@ -168,7 +169,20 @@
     "colorPreference": "Chọn quân",
     "randomColor": "Ngẫu nhiên",
     "whiteColor": "Trắng",
-    "blackColor": "Đen"
+    "blackColor": "Đen",
+    "onlineNoticeTitle": "Yêu cầu cấu hình Firebase để chơi Online",
+    "onlineNoticeDesc": "Chế độ Trực tuyến kết nối thời gian thực qua Firebase Realtime Database. Bạn có thể chuyển sang Chơi chung máy (Hot-Seat) ngay hoặc nhập thông tin cấu hình Firebase.",
+    "switchToHotseat": "Chơi chung máy (Hot-Seat)",
+    "configFirebase": "Cấu hình Firebase trực tiếp",
+    "configModalTitle": "Cấu hình Firebase Realtime Database",
+    "configModalDesc": "Nhập API Key và Database URL từ Firebase Console để kích hoạt tính năng Online trực tiếp trên trình duyệt.",
+    "apiKeyLabel": "Firebase API Key (VITE_FIREBASE_API_KEY)",
+    "databaseUrlLabel": "Database URL (VITE_FIREBASE_DATABASE_URL)",
+    "projectIdLabel": "Project ID (Tùy chọn)",
+    "saveAndConnect": "Lưu & Kết nối",
+    "clearConfig": "Xóa cấu hình đã lưu",
+    "configSaved": "Đã lưu cấu hình Firebase!",
+    "devGuideSummary": "Xem hướng dẫn thiết lập cho GitHub Pages & Local (.env)"
   },
   "modes": {
     "standard": {

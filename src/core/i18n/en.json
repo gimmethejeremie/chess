@@ -14,6 +14,7 @@
     "pieceSet": "Piece Set",
     "boardTheme": "Theme",
     "coords": "Coordinates",
+    "focus": "Focus",
     "sound": "Sound",
     "muted": "Muted",
     "unmuted": "Sound On"
@@ -168,7 +169,20 @@
     "colorPreference": "Side",
     "randomColor": "Random",
     "whiteColor": "White",
-    "blackColor": "Black"
+    "blackColor": "Black",
+    "onlineNoticeTitle": "Firebase Configuration Required",
+    "onlineNoticeDesc": "Online Multiplayer synchronizes moves and game clocks via Firebase Realtime Database. You can switch to local Hot-Seat immediately or configure Firebase credentials.",
+    "switchToHotseat": "Play Local 2-Player (Hot-Seat)",
+    "configFirebase": "Configure Firebase Credentials",
+    "configModalTitle": "Firebase Realtime Database Setup",
+    "configModalDesc": "Enter your API Key and Database URL from Firebase Console to enable online matchmaking directly in this browser.",
+    "apiKeyLabel": "Firebase API Key (VITE_FIREBASE_API_KEY)",
+    "databaseUrlLabel": "Database URL (VITE_FIREBASE_DATABASE_URL)",
+    "projectIdLabel": "Project ID (Optional)",
+    "saveAndConnect": "Save & Connect",
+    "clearConfig": "Clear Saved Config",
+    "configSaved": "Firebase credentials saved!",
+    "devGuideSummary": "View developer setup guide (GitHub Pages & .env)"
   },
   "modes": {
     "standard": {

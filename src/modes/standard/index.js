@@ -512,7 +512,7 @@ export class StandardChessGame {
       <div class="chess-modal-backdrop" id="std-promotion-backdrop">
         <div class="chess-dialog-box" role="dialog" aria-modal="true" aria-labelledby="std-promote-title">
           <div class="dialog-header">
-            <h3 class="dialog-title" id="std-promote-title">👑 ${i18n.t('standard.promoteTitle')}</h3>
+            <h3 class="dialog-title" id="std-promote-title">${i18n.t('standard.promoteTitle')}</h3>
             <p class="dialog-subtitle">${i18n.t('standard.promoteDesc')}</p>
           </div>
           <div class="dialog-body">
@@ -614,16 +614,18 @@ export class StandardChessGame {
       <div class="chess-modal-backdrop" id="std-gameover-backdrop">
         <div class="chess-dialog-box" role="dialog" aria-modal="true">
           <div class="dialog-header">
-            <h3 class="dialog-title">🏁 ${i18n.t('standard.gameOver')}</h3>
+            <h3 class="dialog-title" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              ${icons.trophy} ${i18n.t('standard.gameOver')}
+            </h3>
             <span class="gameover-result-badge">${result}</span>
             <p class="gameover-reason">${title}<br /><span style="font-size: 0.9rem; font-weight: normal; color: var(--text-secondary);">${reason}</span></p>
           </div>
           <div class="dialog-body" style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <button class="btn btn-primary" id="std-btn-new-game-dialog">
-              ↺ ${i18n.t('standard.newGame')}
+            <button class="btn btn-primary" id="std-btn-new-game-dialog" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+              ${icons.reset} <span>${i18n.t('standard.newGame')}</span>
             </button>
             <button class="btn btn-secondary" id="std-btn-review-board-dialog">
-              👀 ${i18n.t('standard.close')}
+              <span>${i18n.t('standard.close')}</span>
             </button>
           </div>
         </div>
@@ -791,7 +793,9 @@ export class StandardChessGame {
       <div class="chess-modal-backdrop" id="std-pgnfen-backdrop">
         <div class="chess-dialog-box" style="max-width: 500px;" role="dialog" aria-modal="true">
           <div class="dialog-header">
-            <h3 class="dialog-title">♟️ ${i18n.t('standard.pgnFen')}</h3>
+            <h3 class="dialog-title" style="display: flex; align-items: center; gap: 0.5rem;">
+              ${icons.pgn} ${i18n.t('standard.pgnFen')}
+            </h3>
             <p class="dialog-subtitle">Import or export board positions and game notation</p>
           </div>
 
@@ -806,16 +810,16 @@ export class StandardChessGame {
               <div class="pgnfen-input-group">
                 <label class="pgnfen-label">${i18n.t('standard.fenLabel')}</label>
                 <textarea class="pgnfen-textarea" id="std-fen-text" readonly rows="2">${currentFen}</textarea>
-                <button class="btn btn-secondary" id="std-btn-copy-fen" style="margin-top: 0.4rem; width: 100%;">
-                  📋 ${i18n.t('standard.copyFen')}
+                <button class="btn btn-secondary" id="std-btn-copy-fen" style="margin-top: 0.4rem; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                  ${icons.copy} <span>${i18n.t('standard.copyFen')}</span>
                 </button>
               </div>
 
               <div class="pgnfen-input-group" style="margin-top: 1rem;">
                 <label class="pgnfen-label">${i18n.t('standard.loadFen')}</label>
                 <input type="text" class="toolbar-select" id="std-fen-input" placeholder="${i18n.t('standard.pasteFenPlaceholder')}" style="width: 100%; box-sizing: border-box;" />
-                <button class="btn btn-primary" id="std-btn-load-fen" style="margin-top: 0.4rem; width: 100%;">
-                  📥 ${i18n.t('standard.loadFen')}
+                <button class="btn btn-primary" id="std-btn-load-fen" style="margin-top: 0.4rem; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                  ${icons.save} <span>${i18n.t('standard.loadFen')}</span>
                 </button>
               </div>
             </div>
@@ -825,16 +829,16 @@ export class StandardChessGame {
               <div class="pgnfen-input-group">
                 <label class="pgnfen-label">${i18n.t('standard.pgnLabel')}</label>
                 <textarea class="pgnfen-textarea" id="std-pgn-text" readonly rows="4">${currentPgn || '1. ...'}</textarea>
-                <button class="btn btn-secondary" id="std-btn-copy-pgn" style="margin-top: 0.4rem; width: 100%;">
-                  📋 ${i18n.t('standard.copyPgn')}
+                <button class="btn btn-secondary" id="std-btn-copy-pgn" style="margin-top: 0.4rem; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                  ${icons.copy} <span>${i18n.t('standard.copyPgn')}</span>
                 </button>
               </div>
 
               <div class="pgnfen-input-group" style="margin-top: 1rem;">
                 <label class="pgnfen-label">${i18n.t('standard.loadPgn')}</label>
                 <textarea class="pgnfen-textarea" id="std-pgn-input" placeholder="${i18n.t('standard.pastePgnPlaceholder')}" rows="3"></textarea>
-                <button class="btn btn-primary" id="std-btn-load-pgn" style="margin-top: 0.4rem; width: 100%;">
-                  📥 ${i18n.t('standard.loadPgn')}
+                <button class="btn btn-primary" id="std-btn-load-pgn" style="margin-top: 0.4rem; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                  ${icons.save} <span>${i18n.t('standard.loadPgn')}</span>
                 </button>
               </div>
             </div>

@@ -30,15 +30,21 @@ export class FirebaseNetworkAdapter extends NetworkAdapter {
   constructor() {
     super();
 
+    let custom = null;
+    try {
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('chess_firebase_custom_config') : null;
+      if (stored) custom = JSON.parse(stored);
+    } catch (_) {}
+
     this.config = {
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-      appId: import.meta.env.VITE_FIREBASE_APP_ID,
-      measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+      apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || custom?.apiKey || '',
+      authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || custom?.authDomain || '',
+      databaseURL: import.meta.env?.VITE_FIREBASE_DATABASE_URL || custom?.databaseURL || '',
+      projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || custom?.projectId || '',
+      storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || custom?.storageBucket || '',
+      messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || custom?.messagingSenderId || '',
+      appId: import.meta.env?.VITE_FIREBASE_APP_ID || custom?.appId || '',
+      measurementId: import.meta.env?.VITE_FIREBASE_MEASUREMENT_ID || custom?.measurementId || ''
     };
 
     this.app = null;
@@ -53,6 +59,58 @@ export class FirebaseNetworkAdapter extends NetworkAdapter {
     // Active listeners maps: roomId -> Function
     this.stateListeners = new Map();
     this.presenceListeners = new Map();
+  }
+
+  isConfigured() {
+    return Boolean(this.config.apiKey && this.config.databaseURL);
+  }
+
+  getCustomConfig() {
+    try {
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('chess_firebase_custom_config') : null;
+      return stored ? JSON.parse(stored) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  setCustomConfig(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    try {
+      localStorage.setItem('chess_firebase_custom_config', JSON.stringify(cfg));
+    } catch (_) {}
+
+    this.config = {
+      ...this.config,
+      ...cfg
+    };
+
+    this.app = null;
+    this.auth = null;
+    this.db = null;
+    this.currentUser = null;
+  }
+
+  clearCustomConfig() {
+    try {
+      localStorage.removeItem('chess_firebase_custom_config');
+    } catch (_) {}
+
+    this.config = {
+      apiKey: import.meta.env?.VITE_FIREBASE_API_KEY || '',
+      authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN || '',
+      databaseURL: import.meta.env?.VITE_FIREBASE_DATABASE_URL || '',
+      projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID || '',
+      storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET || '',
+      messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+      appId: import.meta.env?.VITE_FIREBASE_APP_ID || '',
+      measurementId: import.meta.env?.VITE_FIREBASE_MEASUREMENT_ID || ''
+    };
+
+    this.app = null;
+    this.auth = null;
+    this.db = null;
+    this.currentUser = null;
   }
 
   /**

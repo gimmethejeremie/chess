@@ -49,10 +49,8 @@ function renderApp() {
   const currentLocale = i18n.getLocale();
   const currentTheme = state.theme;
 
-  const langLabel = currentLocale === 'en' ? '🇻🇳 Tiếng Việt' : '🇺🇸 English';
-  const themeIcon = currentTheme === 'dark' ? '☀️' : '🌙';
+  const langLabel = currentLocale === 'en' ? 'Tiếng Việt' : 'English';
   const themeLabel = currentTheme === 'dark' ? i18n.t('app.themeLight') : i18n.t('app.themeDark');
-  const soundIcon = state.soundMuted ? '🔇' : '🔊';
   const soundTitle = state.soundMuted ? i18n.t('demo.muted') : i18n.t('demo.unmuted');
 
   const modeChanged = state.currentMode !== currentMountedMode;
@@ -406,7 +404,7 @@ function mountDemoBoard() {
       showThemes: true,
       showCoords: true,
       showReset: true,
-      showZen: true,
+      showZen: false,
       onReset: () => {
         demoChessInstance.reset();
         demoBoardRenderer.setPosition(demoChessInstance.board());

@@ -641,7 +641,7 @@ export class MultiplayerGame {
       <div class="chess-modal-backdrop" id="mp-promotion-backdrop">
         <div class="chess-dialog-box" role="dialog" aria-modal="true">
           <div class="dialog-header">
-            <h3 class="dialog-title">👑 ${i18n.t('standard.promoteTitle')}</h3>
+            <h3 class="dialog-title">${i18n.t('standard.promoteTitle')}</h3>
             <p class="dialog-subtitle">${i18n.t('standard.promoteDesc')}</p>
           </div>
           <div class="dialog-body">
@@ -928,89 +928,150 @@ export class MultiplayerGame {
     const contentEl = document.getElementById('mp-submode-content');
     if (!contentEl) return;
 
+    const isFbConfigured = firebaseAdapter.isConfigured();
+
     contentEl.innerHTML = `
       <div class="online-lobby-wrapper">
         ${
           this.onlineError
             ? `
-          <div class="online-error-banner">
-            <span>⚠️</span>
-            <span>${this.onlineError}</span>
+          <div class="online-error-banner" role="alert">
+            <span class="error-icon">${icons.info}</span>
+            <span class="error-msg">${this.onlineError}</span>
+            <button type="button" class="error-dismiss-btn" id="mp-dismiss-error" aria-label="Dismiss">
+              ${icons.close}
+            </button>
           </div>
         `
             : ''
         }
 
-        <div class="online-lobby-grid">
-          <!-- Card 1: Create Room -->
-          <div class="mp-card">
-            <h3 class="mp-card-title">➕ ${i18n.t('multiplayer.createRoom')}</h3>
-
-            <div>
-              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.25rem;">
-                ${i18n.t('multiplayer.colorPreference')}
-              </label>
-              <div class="color-choice-group">
-                <button class="color-choice-btn ${this.onlineHostColor === 'random' ? 'active' : ''}" data-host-color="random">
-                  🎲 ${i18n.t('multiplayer.randomColor')}
-                </button>
-                <button class="color-choice-btn ${this.onlineHostColor === 'white' ? 'active' : ''}" data-host-color="white">
-                  ⚪ ${i18n.t('multiplayer.whiteColor')}
-                </button>
-                <button class="color-choice-btn ${this.onlineHostColor === 'black' ? 'active' : ''}" data-host-color="black">
-                  ⚫ ${i18n.t('multiplayer.blackColor')}
-                </button>
+        ${
+          !isFbConfigured
+            ? `
+          <div class="online-setup-notice">
+            <div class="setup-notice-header">
+              <div class="setup-icon-box">${icons.server}</div>
+              <div class="setup-header-text">
+                <h3 class="setup-title">${i18n.t('multiplayer.onlineNoticeTitle')}</h3>
+                <p class="setup-desc">${i18n.t('multiplayer.onlineNoticeDesc')}</p>
               </div>
             </div>
 
-            <div style="margin-top: 0.5rem;">
-              <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem;">
-                ⏱️ ${i18n.t('multiplayer.timeControl')}
-              </label>
-              <div class="preset-pills-grid">
-                ${TIME_PRESETS.slice(0, 9)
-                  .map(
-                    (p) => `
-                  <button class="preset-pill online-preset ${p.id === this.onlineSelectedPresetId ? 'active' : ''}" data-online-preset="${p.id}">
-                    ${p.id}
+            <div class="setup-actions">
+              <button class="btn btn-primary" id="mp-btn-switch-hotseat">
+                <span>${i18n.t('multiplayer.switchToHotseat')}</span>
+              </button>
+              <button class="btn btn-secondary" id="mp-btn-open-firebase-modal">
+                <span class="btn-icon">${icons.settings}</span>
+                <span>${i18n.t('multiplayer.configFirebase')}</span>
+              </button>
+            </div>
+
+            <details class="setup-guide-details">
+              <summary>${i18n.t('multiplayer.devGuideSummary')}</summary>
+              <div class="setup-guide-content">
+                <p><strong>1. Cấu hình nhanh trực tiếp:</strong> Bấm <em>"${i18n.t('multiplayer.configFirebase')}"</em> để dán API Key & Database URL lưu trong trình duyệt và thử nghiệm ngay.</p>
+                <p><strong>2. Cấu hình cho GitHub Pages:</strong> Vào repository GitHub <code>Settings &rarr; Secrets and variables &rarr; Actions</code>, thêm:</p>
+                <ul>
+                  <li><code>VITE_FIREBASE_API_KEY</code></li>
+                  <li><code>VITE_FIREBASE_DATABASE_URL</code></li>
+                </ul>
+                <p>Sau đó vào GitHub Actions bấm <em>Re-run jobs</em> để workflow tự động build và kích hoạt kết nối.</p>
+                <p><strong>3. Chạy Local (.env):</strong> Tạo file <code>.env</code> từ <code>.env.example</code> và điền API credentials từ Firebase Console.</p>
+              </div>
+            </details>
+          </div>
+        `
+            : `
+          <div class="online-lobby-toolbar" style="display: flex; justify-content: flex-end; width: 100%;">
+            <button type="button" class="btn btn-secondary btn-sm" id="mp-btn-open-firebase-modal" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+              <span class="btn-icon">${icons.settings}</span>
+              <span>${i18n.t('multiplayer.configFirebase')}</span>
+            </button>
+          </div>
+
+          <div class="online-lobby-grid">
+            <!-- Card 1: Create Room -->
+            <div class="mp-card">
+              <h3 class="mp-card-title">
+                <span class="card-title-icon">${icons.playArrow}</span>
+                ${i18n.t('multiplayer.createRoom')}
+              </h3>
+
+              <div>
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.25rem;">
+                  ${i18n.t('multiplayer.colorPreference')}
+                </label>
+                <div class="color-choice-group">
+                  <button class="color-choice-btn ${this.onlineHostColor === 'random' ? 'active' : ''}" data-host-color="random">
+                    <span class="color-indicator random-indicator"></span>
+                    <span>${i18n.t('multiplayer.randomColor')}</span>
                   </button>
-                `
-                  )
-                  .join('')}
+                  <button class="color-choice-btn ${this.onlineHostColor === 'white' ? 'active' : ''}" data-host-color="white">
+                    <span class="color-indicator white-indicator"></span>
+                    <span>${i18n.t('multiplayer.whiteColor')}</span>
+                  </button>
+                  <button class="color-choice-btn ${this.onlineHostColor === 'black' ? 'active' : ''}" data-host-color="black">
+                    <span class="color-indicator black-indicator"></span>
+                    <span>${i18n.t('multiplayer.blackColor')}</span>
+                  </button>
+                </div>
               </div>
+
+              <div style="margin-top: 0.5rem;">
+                <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.4rem;">
+                  ${i18n.t('multiplayer.timeControl')}
+                </label>
+                <div class="preset-pills-grid">
+                  ${TIME_PRESETS.slice(0, 9)
+                    .map(
+                      (p) => `
+                    <button class="preset-pill online-preset ${p.id === this.onlineSelectedPresetId ? 'active' : ''}" data-online-preset="${p.id}">
+                      ${p.id}
+                    </button>
+                  `
+                    )
+                    .join('')}
+                </div>
+              </div>
+
+              <button class="btn btn-primary" id="mp-btn-create-room" style="width: 100%; margin-top: 0.75rem;" ${this.isConnecting ? 'disabled' : ''}>
+                <span>${this.isConnecting ? 'Connecting...' : i18n.t('multiplayer.createRoom')}</span>
+              </button>
             </div>
 
-            <button class="btn btn-primary" id="mp-btn-create-room" style="width: 100%; margin-top: 0.75rem;" ${this.isConnecting ? 'disabled' : ''}>
-              ${this.isConnecting ? 'Connecting...' : `🚀 ${i18n.t('multiplayer.createRoom')}`}
-            </button>
-          </div>
+            <!-- Card 2: Join Room -->
+            <div class="mp-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <h3 class="mp-card-title">
+                  <span class="card-title-icon">${icons.key}</span>
+                  ${i18n.t('multiplayer.joinRoom')}
+                </h3>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                  ${i18n.t('multiplayer.enterCode') || 'Enter a 6-character room code:'}
+                </p>
 
-          <!-- Card 2: Join Room -->
-          <div class="mp-card" style="display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <h3 class="mp-card-title">🔑 ${i18n.t('multiplayer.joinRoom')}</h3>
-              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-                Enter a 6-character room code from your friend:
-              </p>
-
-              <div class="room-input-group">
-                <input
-                  type="text"
-                  id="mp-join-code-input"
-                  class="room-code-input"
-                  placeholder="ABC123"
-                  maxlength="6"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
+                <div class="room-input-group">
+                  <input
+                    type="text"
+                    id="mp-join-code-input"
+                    class="room-code-input"
+                    placeholder="ABC123"
+                    maxlength="6"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
               </div>
-            </div>
 
-            <button class="btn btn-primary" id="mp-btn-join-room" style="width: 100%; margin-top: 1rem;" ${this.isConnecting ? 'disabled' : ''}>
-              ${this.isConnecting ? 'Connecting...' : `➡️ ${i18n.t('multiplayer.joinBtn')}`}
-            </button>
+              <button class="btn btn-primary" id="mp-btn-join-room" style="width: 100%; margin-top: 1rem;" ${this.isConnecting ? 'disabled' : ''}>
+                <span>${this.isConnecting ? 'Connecting...' : i18n.t('multiplayer.joinBtn')}</span>
+              </button>
+            </div>
           </div>
-        </div>
+        `
+        }
       </div>
     `;
 
@@ -1018,6 +1079,24 @@ export class MultiplayerGame {
   }
 
   attachLobbyEvents() {
+    // Dismiss error banner
+    document.getElementById('mp-dismiss-error')?.addEventListener('click', () => {
+      this.onlineError = null;
+      this.renderOnlineLobby();
+    });
+
+    // Switch to hotseat
+    document.getElementById('mp-btn-switch-hotseat')?.addEventListener('click', () => {
+      this.switchSubMode('hotseat');
+    });
+
+    // Open Firebase Config Modal
+    document.querySelectorAll('#mp-btn-open-firebase-modal').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.renderFirebaseConfigModal();
+      });
+    });
+
     // Color choice selection
     document.querySelectorAll('[data-host-color]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1055,6 +1134,119 @@ export class MultiplayerGame {
     joinBtn?.addEventListener('click', handleJoin);
     joinInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') handleJoin();
+    });
+  }
+
+  renderFirebaseConfigModal() {
+    const existingModal = document.getElementById('firebase-config-modal');
+    if (existingModal) existingModal.remove();
+
+    const currentCfg = firebaseAdapter.getCustomConfig() || {};
+    const modalEl = document.createElement('div');
+    modalEl.id = 'firebase-config-modal';
+    modalEl.className = 'chess-modal-backdrop';
+    modalEl.innerHTML = `
+      <div class="chess-dialog-box" role="dialog" aria-modal="true" style="max-width: 480px;">
+        <div class="dialog-header">
+          <h3 class="dialog-title" style="display: flex; align-items: center; gap: 0.5rem;">
+            ${icons.server} ${i18n.t('multiplayer.configModalTitle')}
+          </h3>
+          <p class="dialog-subtitle">${i18n.t('multiplayer.configModalDesc')}</p>
+        </div>
+        <div class="dialog-body" style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.25rem;">
+              ${i18n.t('multiplayer.apiKeyLabel')}
+            </label>
+            <input
+              type="text"
+              id="fb-input-api-key"
+              class="room-code-input"
+              style="font-size: 0.875rem; text-align: left; letter-spacing: normal; font-family: monospace; padding: 0.5rem 0.65rem;"
+              placeholder="AIzaSy..."
+              value="${currentCfg.apiKey || ''}"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.25rem;">
+              ${i18n.t('multiplayer.databaseUrlLabel')}
+            </label>
+            <input
+              type="text"
+              id="fb-input-db-url"
+              class="room-code-input"
+              style="font-size: 0.875rem; text-align: left; letter-spacing: normal; font-family: monospace; padding: 0.5rem 0.65rem;"
+              placeholder="https://your-project-default-rtdb.firebaseio.com"
+              value="${currentCfg.databaseURL || ''}"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.25rem;">
+              ${i18n.t('multiplayer.projectIdLabel')}
+            </label>
+            <input
+              type="text"
+              id="fb-input-project-id"
+              class="room-code-input"
+              style="font-size: 0.875rem; text-align: left; letter-spacing: normal; font-family: monospace; padding: 0.5rem 0.65rem;"
+              placeholder="chess-app-12345"
+              value="${currentCfg.projectId || ''}"
+            />
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
+            <button type="button" class="btn btn-secondary" id="fb-btn-clear" style="font-size: 0.8rem; padding: 0.35rem 0.65rem; color: #ef4444;">
+              ${i18n.t('multiplayer.clearConfig')}
+            </button>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-secondary" id="fb-btn-cancel">
+                ${i18n.t('standard.close')}
+              </button>
+              <button type="button" class="btn btn-primary" id="fb-btn-save">
+                ${i18n.t('multiplayer.saveAndConnect')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modalEl);
+
+    const closeModal = () => modalEl.remove();
+    document.getElementById('fb-btn-cancel')?.addEventListener('click', closeModal);
+    modalEl.addEventListener('click', (e) => {
+      if (e.target === modalEl) closeModal();
+    });
+
+    document.getElementById('fb-btn-save')?.addEventListener('click', () => {
+      const apiKey = document.getElementById('fb-input-api-key')?.value.trim();
+      const databaseURL = document.getElementById('fb-input-db-url')?.value.trim();
+      const projectId = document.getElementById('fb-input-project-id')?.value.trim();
+
+      if (!apiKey || !databaseURL) {
+        alert('Vui lòng điền API Key và Database URL');
+        return;
+      }
+
+      firebaseAdapter.setCustomConfig({
+        apiKey,
+        databaseURL,
+        projectId: projectId || undefined
+      });
+
+      this.onlineError = null;
+      closeModal();
+      this.renderOnlineLobby();
+    });
+
+    document.getElementById('fb-btn-clear')?.addEventListener('click', () => {
+      firebaseAdapter.clearCustomConfig();
+      this.onlineError = null;
+      closeModal();
+      this.renderOnlineLobby();
     });
   }
 
@@ -1133,8 +1325,8 @@ export class MultiplayerGame {
         <div class="room-code-tag">
           <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-secondary);">${i18n.t('multiplayer.roomCode')}:</span>
           <span class="room-code-display">${this.onlineRoomId}</span>
-          <button class="btn btn-secondary" id="mp-btn-copy-link" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
-            📋 ${i18n.t('multiplayer.copyLink')}
+          <button class="btn btn-secondary" id="mp-btn-copy-link" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+            ${icons.copy} <span>${i18n.t('multiplayer.copyLink')}</span>
           </button>
         </div>
 
@@ -1285,7 +1477,7 @@ export class MultiplayerGame {
       navigator.clipboard.writeText(url).then(() => {
         const btn = e.currentTarget;
         const originalText = btn.innerHTML;
-        btn.innerHTML = `✓ ${i18n.t('multiplayer.linkCopied')}`;
+        btn.innerHTML = `${icons.check} <span>${i18n.t('multiplayer.linkCopied')}</span>`;
         setTimeout(() => {
           btn.innerHTML = originalText;
         }, 2000);
@@ -1552,7 +1744,7 @@ export class MultiplayerGame {
       <div class="chess-modal-backdrop" id="mp-promotion-backdrop">
         <div class="chess-dialog-box" role="dialog" aria-modal="true">
           <div class="dialog-header">
-            <h3 class="dialog-title">👑 ${i18n.t('standard.promoteTitle')}</h3>
+            <h3 class="dialog-title">${i18n.t('standard.promoteTitle')}</h3>
             <p class="dialog-subtitle">${i18n.t('standard.promoteDesc')}</p>
           </div>
           <div class="dialog-body">
@@ -1728,13 +1920,13 @@ export class MultiplayerGame {
       if (drawOffer && drawOffer !== this.onlineRole && this.onlineRole !== 'spectator') {
         drawMount.innerHTML = `
           <div class="draw-offer-alert">
-            <span>🤝 ${i18n.t('multiplayer.drawOffered')}</span>
+            <span style="display: flex; align-items: center; gap: 0.4rem;">${icons.handshake} ${i18n.t('multiplayer.drawOffered')}</span>
             <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
-              <button class="btn btn-primary" id="mp-btn-accept-draw" style="flex: 1; padding: 0.35rem 0.5rem; font-size: 0.8rem;">
-                ✓ ${i18n.t('multiplayer.acceptDraw')}
+              <button class="btn btn-primary" id="mp-btn-accept-draw" style="flex: 1; padding: 0.35rem 0.5rem; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                ${icons.check} <span>${i18n.t('multiplayer.acceptDraw')}</span>
               </button>
-              <button class="btn btn-secondary" id="mp-btn-decline-draw" style="flex: 1; padding: 0.35rem 0.5rem; font-size: 0.8rem;">
-                ✕ ${i18n.t('multiplayer.declineDraw')}
+              <button class="btn btn-secondary" id="mp-btn-decline-draw" style="flex: 1; padding: 0.35rem 0.5rem; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;">
+                ${icons.close} <span>${i18n.t('multiplayer.declineDraw')}</span>
               </button>
             </div>
           </div>
@@ -1748,8 +1940,8 @@ export class MultiplayerGame {
         });
       } else if (drawOffer === this.onlineRole) {
         drawMount.innerHTML = `
-          <div style="font-size: 0.825rem; font-style: italic; color: var(--text-secondary); margin-bottom: 0.5rem;">
-            🤝 Draw offered to opponent...
+          <div style="font-size: 0.825rem; font-style: italic; color: var(--text-secondary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+            ${icons.handshake} <span>Draw offered to opponent...</span>
           </div>
         `;
       } else {
@@ -1822,9 +2014,9 @@ export class MultiplayerGame {
   }
 
   getRoleBadgeText() {
-    if (this.onlineRole === 'white') return `${i18n.t('multiplayer.playingAs')} White ⚪`;
-    if (this.onlineRole === 'black') return `${i18n.t('multiplayer.playingAs')} Black ⚫`;
-    return `👁️ ${i18n.t('multiplayer.spectating')}`;
+    if (this.onlineRole === 'white') return `${i18n.t('multiplayer.playingAs')} White`;
+    if (this.onlineRole === 'black') return `${i18n.t('multiplayer.playingAs')} Black`;
+    return `${i18n.t('multiplayer.spectating')}`;
   }
 
   getOnlineStatusText() {
@@ -1832,15 +2024,15 @@ export class MultiplayerGame {
     const { status, turn, result, reason } = this.onlineRoomState;
 
     if (status === 'waiting') {
-      return `⏳ ${i18n.t('multiplayer.waitingOpponent')}`;
+      return i18n.t('multiplayer.waitingOpponent');
     }
     if (status === 'playing') {
       const turnText = turn === 'w' ? i18n.t('multiplayer.whiteTurn') : i18n.t('multiplayer.blackTurn');
       const isMyTurn = this.isMyOnlineTurn();
-      return `${turnText} ${isMyTurn ? '★ (Your Turn)' : ''}`;
+      return `${turnText}${isMyTurn ? ' (Your Turn)' : ''}`;
     }
     if (status === 'ended') {
-      return `🏁 Game Over: ${result || ''} (${reason || ''})`;
+      return `Game Over: ${result || ''} (${reason || ''})`;
     }
     return '';
   }
@@ -1902,7 +2094,9 @@ export class MultiplayerGame {
       <div class="chess-modal-backdrop" id="mp-gameover-backdrop">
         <div class="chess-dialog-box" role="dialog" aria-modal="true">
           <div class="dialog-header">
-            <h3 class="dialog-title">🏁 ${i18n.t('standard.gameOver')}</h3>
+            <h3 class="dialog-title" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              ${icons.trophy} ${i18n.t('standard.gameOver')}
+            </h3>
             <span class="gameover-result-badge">${result}</span>
             <p class="gameover-reason">${title}<br /><span style="font-size: 0.9rem; font-weight: normal; color: var(--text-secondary);">${reason}</span></p>
           </div>
@@ -1910,17 +2104,17 @@ export class MultiplayerGame {
             ${
               !isOnline || this.onlineRole !== 'spectator'
                 ? `
-              <button class="btn btn-primary" id="mp-btn-rematch-dialog">
-                🔁 ${i18n.t('multiplayer.rematch')}
+              <button class="btn btn-primary" id="mp-btn-rematch-dialog" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                ${icons.reset} <span>${i18n.t('multiplayer.rematch')}</span>
               </button>
             `
                 : ''
             }
-            <button class="btn btn-secondary" id="mp-btn-download-pgn">
-              ⬇️ ${i18n.t('multiplayer.downloadPgn')}
+            <button class="btn btn-secondary" id="mp-btn-download-pgn" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+              ${icons.pgn} <span>${i18n.t('multiplayer.downloadPgn')}</span>
             </button>
             <button class="btn btn-secondary" id="mp-btn-close-dialog">
-              👀 ${i18n.t('standard.close')}
+              <span>${i18n.t('standard.close')}</span>
             </button>
           </div>
         </div>
