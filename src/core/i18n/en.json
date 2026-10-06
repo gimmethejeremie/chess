@@ -125,7 +125,13 @@
     "toggleEval": "Evaluation Bar (Eval)",
     "you": "You",
     "bot": "Bot",
-    "timeoutWin": "{winner} won on time!"
+    "timeoutWin": "{winner} won on time!",
+    "zenMode": "Focus",
+    "exitZen": "Exit Focus (Z)",
+    "difficulty": "Difficulty",
+    "clock": "Clock",
+    "levelChanged": "Switched to Level {level}",
+    "clockChanged": "Set time control to {time}"
   },
   "sandbox": {
     "title": "Sandbox",
@@ -233,14 +239,14 @@
     "standard": {
       "title": "Standard",
       "badge": "Rule-Enforced",
-      "description": "Play classical chess with full rule enforcement, legal moves validation, checks, checkmates, and draws.",
-      "action": "Play Standard"
+      "description": "Play against AI (3 levels) or pass & play. Full FIDE rules, chess clocks, opening identification, and evaluation bar.",
+      "action": "Play Match"
     },
     "sandbox": {
       "title": "Sandbox",
       "badge": "Free Board",
-      "description": "Free manual board with no rules. Drag any piece anywhere, setup custom positions, delete pieces, or clear the board.",
-      "action": "Enter Sandbox"
+      "description": "Free manual board with no rules. Setup positions, free piece placement, tactical arrows, and FEN import/export.",
+      "action": "Open Sandbox"
     },
     "multiplayer": {
       "title": "Multiplayer",

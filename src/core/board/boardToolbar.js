@@ -41,6 +41,7 @@ export class BoardToolbar {
     this.showReset = Boolean(options.showReset);
     this.showClearArrows = Boolean(options.showClearArrows);
     this.showEvalBar = Boolean(options.showEvalBar);
+    this.showZen = options.showZen !== undefined ? options.showZen : true;
 
     this.onFlip = options.onFlip || null;
     this.onReset = options.onReset || null;
@@ -54,6 +55,19 @@ export class BoardToolbar {
     this.i18nUnsub = null;
 
     this.mount();
+  }
+
+  setZen(isZen) {
+    this.isZen = Boolean(isZen);
+    const zenBtn = this.container.querySelector('[data-action="zen"]');
+    if (zenBtn) {
+      zenBtn.classList.toggle('active', this.isZen);
+      zenBtn.setAttribute('aria-pressed', String(this.isZen));
+      const iconSpan = zenBtn.querySelector('.ctrl-icon');
+      if (iconSpan) {
+        iconSpan.innerHTML = this.isZen ? icons.focusExit : icons.focusZen;
+      }
+    }
   }
 
   setBoard(board) {

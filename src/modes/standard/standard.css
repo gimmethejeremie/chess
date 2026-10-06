@@ -80,6 +80,206 @@
   color: var(--accent-color);
 }
 
+.standard-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.mode-zen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 34px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.mode-zen-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.mode-zen-btn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.mode-zen-btn.active {
+  background-color: var(--accent-color);
+  color: var(--accent-text);
+  border-color: var(--accent-color);
+}
+
+/* Floating Zen Exit Button */
+.zen-exit-floating-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.825rem;
+  font-weight: 700;
+  border-radius: var(--radius-full, 9999px);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zen-exit-floating-btn:hover {
+  background-color: var(--bg-surface-hover);
+  transform: translateY(-1px);
+}
+
+.zen-exit-floating-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Zen Mode Active State */
+.standard-mode-container.zen-mode .standard-header,
+.standard-mode-container.zen-mode .standard-side-panel {
+  display: none !important;
+}
+
+.standard-mode-container.zen-mode {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.standard-mode-container.zen-mode .standard-game-layout {
+  justify-content: center;
+  align-items: center;
+}
+
+.standard-mode-container.zen-mode .standard-board-area {
+  max-width: 640px;
+  width: 100%;
+}
+
+/* Quick Match Control Panel */
+.match-quick-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.match-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.match-row-label {
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  width: 65px;
+  flex-shrink: 0;
+}
+
+.match-segmented {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-surface-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 6px);
+  padding: 2px;
+  flex: 1;
+  gap: 2px;
+}
+
+.match-seg-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.match-seg-btn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.match-seg-btn:hover {
+  color: var(--text-primary);
+}
+
+.match-seg-btn.active {
+  background-color: var(--bg-surface);
+  color: var(--accent-color);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.match-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.match-pill-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm, 5px);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface-hover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.match-pill-btn:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.match-pill-btn.active {
+  background-color: var(--accent-color);
+  color: var(--accent-text);
+  border-color: var(--accent-color);
+  font-weight: 700;
+}
+
+
 /* Two-column Game Layout */
 .standard-game-layout {
   display: flex;

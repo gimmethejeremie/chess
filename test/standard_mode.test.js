@@ -1,11 +1,40 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Chess } from 'chess.js';
 
 describe('Standard Mode - Legal Rules Engine Verification', () => {
   let chess;
+  let originalDocument;
 
   beforeEach(() => {
     chess = new Chess();
+    originalDocument = globalThis.document;
+    const createEl = () => ({
+      style: {},
+      classList: { add: () => {}, remove: () => {}, toggle: () => {} },
+      appendChild: () => {},
+      addEventListener: () => {},
+      setAttribute: () => {},
+      getAttribute: () => null,
+      querySelector: () => null,
+      querySelectorAll: () => []
+    });
+    globalThis.document = {
+      body: {
+        appendChild: () => {},
+        removeChild: () => {}
+      },
+      createElement: createEl,
+      createElementNS: createEl,
+      getElementById: () => null,
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+      removeEventListener: () => {}
+    };
+  });
+
+  afterEach(() => {
+    globalThis.document = originalDocument;
   });
 
   it('handles Kingside and Queenside castling properly', () => {
@@ -149,5 +178,45 @@ describe('Standard Mode - Legal Rules Engine Verification', () => {
     const blackDownPawn = evaluateBoard(chess);
     expect(blackDownPawn).toBeGreaterThan(normalScore);
   });
+
+  it('exposes direct 1-click match configuration and Zen mode control methods', async () => {
+    const { StandardChessGame } = await import('../src/modes/standard/index.js');
+    expect(typeof StandardChessGame.prototype.setGameMode).toBe('function');
+    expect(typeof StandardChessGame.prototype.setBotLevel).toBe('function');
+    expect(typeof StandardChessGame.prototype.setTimeControl).toBe('function');
+    expect(typeof StandardChessGame.prototype.toggleZenMode).toBe('function');
+    expect(typeof StandardChessGame.prototype.setZenMode).toBe('function');
+    expect(typeof StandardChessGame.prototype.syncQuickPanelUI).toBe('function');
+
+    // Verify initial instance default state
+    const dummyContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+    const game = new StandardChessGame(dummyContainer);
+    expect(game.gameMode).toBe('bot');
+    expect(game.botLevel).toBe(2);
+    expect(game.timeControl).toBe('5+0');
+    expect(game.isZenMode).toBe(false);
+
+    // Verify state mutations
+    game.setBotLevel(1);
+    expect(game.botLevel).toBe(1);
+    game.setBotLevel(3);
+    expect(game.botLevel).toBe(3);
+
+    game.setTimeControl('10+0');
+    expect(game.timeControl).toBe('10+0');
+    game.setTimeControl('unlimited');
+    expect(game.timeControl).toBe('unlimited');
+
+    game.setGameMode('pass');
+    expect(game.gameMode).toBe('pass');
+
+    game.setZenMode(true);
+    expect(game.isZenMode).toBe(true);
+    game.toggleZenMode();
+    expect(game.isZenMode).toBe(false);
+
+    game.destroy();
+  });
 });
+
 

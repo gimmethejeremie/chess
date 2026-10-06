@@ -71,6 +71,8 @@ export class SandboxGame {
     // Active store unsubscribe listener
     this.storeUnsub = null;
     this.i18nUnsub = null;
+    this.isZenMode = false;
+    this.keyHandler = null;
 
     // Initialize with standard starting position
     this.loadFenInternal(STARTING_FEN, false);
@@ -93,7 +95,8 @@ export class SandboxGame {
         showCoords: true,
         showReset: false,
         showClearArrows: true,
-        showZen: true
+        showZen: true,
+        onZenToggle: (isZen) => this.setZenMode(isZen)
       });
     }
 
@@ -117,6 +120,17 @@ export class SandboxGame {
   }
 
   destroy() {
+    if (this.isZenMode) {
+      this.setZenMode(false);
+    }
+    const floatingBtn = document.getElementById('sb-btn-zen-exit');
+    if (floatingBtn) {
+      floatingBtn.remove();
+    }
+    if (this.keyHandler) {
+      window.removeEventListener('keydown', this.keyHandler);
+      this.keyHandler = null;
+    }
     if (this.storeUnsub) {
       this.storeUnsub();
       this.storeUnsub = null;
@@ -144,6 +158,13 @@ export class SandboxGame {
     }
     const titleEl = document.querySelector('.sandbox-title');
     if (titleEl) titleEl.textContent = i18n.t('sandbox.title');
+
+    const zenBtn = document.getElementById('sb-btn-zen');
+    if (zenBtn) {
+      zenBtn.title = `${i18n.t('standard.zenMode')} (Z)`;
+      const labelSpan = zenBtn.querySelector('span');
+      if (labelSpan) labelSpan.textContent = i18n.t('standard.zenMode');
+    }
 
     const undoBtn = document.getElementById('sb-btn-undo');
     if (undoBtn) {
@@ -202,10 +223,15 @@ export class SandboxGame {
               <span>${i18n.t('sandbox.back')}</span>
             </button>
             <h2 class="sandbox-title">${i18n.t('sandbox.title')}</h2>
-            <span class="sandbox-badge">Free Play / Editor</span>
           </div>
 
-          <div style="display: flex; gap: 0.5rem;">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="mode-zen-btn" id="sb-btn-zen" title="${i18n.t('standard.zenMode')} (Z)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+              </svg>
+              <span>${i18n.t('standard.zenMode')}</span>
+            </button>
             <button class="btn btn-secondary" id="sb-btn-undo" title="${i18n.t('sandbox.undo')}">
               ${icons.undo}
               <span>${i18n.t('sandbox.undo')}</span>
@@ -422,6 +448,28 @@ export class SandboxGame {
       router.navigate(null);
     });
 
+    // Zen Mode Header Button
+    document.getElementById('sb-btn-zen')?.addEventListener('click', () => {
+      this.toggleZenMode();
+    });
+
+    // Keyboard navigation & Zen mode shortcut (Z, Esc)
+    this.keyHandler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        this.toggleZenMode();
+        return;
+      }
+
+      if (e.key === 'Escape' && this.isZenMode) {
+        e.preventDefault();
+        this.setZenMode(false);
+      }
+    };
+    window.addEventListener('keydown', this.keyHandler);
+
     // Undo / Redo
     document.getElementById('sb-btn-undo')?.addEventListener('click', () => this.handleUndo());
     document.getElementById('sb-btn-redo')?.addEventListener('click', () => this.handleRedo());
@@ -534,6 +582,48 @@ export class SandboxGame {
     });
 
     this.renderSavedPositions();
+  }
+
+  /* ========================================================================
+     Zen Mode
+     ======================================================================== */
+
+  toggleZenMode() {
+    this.setZenMode(!this.isZenMode);
+  }
+
+  setZenMode(active) {
+    this.isZenMode = Boolean(active);
+    const container = this.container.querySelector('.sandbox-container');
+    if (container) {
+      container.classList.toggle('zen-mode', this.isZenMode);
+    }
+    const appLayout = document.querySelector('.sandbox-layout');
+    if (appLayout) {
+      appLayout.classList.toggle('zen-mode-active', this.isZenMode);
+    }
+    const zenBtn = document.getElementById('sb-btn-zen');
+    if (zenBtn) {
+      zenBtn.classList.toggle('active', this.isZenMode);
+    }
+    if (this.boardToolbar) {
+      this.boardToolbar.setZen(this.isZenMode);
+    }
+
+    let floatingBtn = document.getElementById('sb-btn-zen-exit');
+    if (this.isZenMode) {
+      if (!floatingBtn) {
+        floatingBtn = document.createElement('button');
+        floatingBtn.id = 'sb-btn-zen-exit';
+        floatingBtn.className = 'zen-exit-floating-btn';
+        floatingBtn.innerHTML = `✕ <span>${i18n.t('standard.exitZen')}</span>`;
+        floatingBtn.title = `${i18n.t('standard.exitZen')} (Esc / Z)`;
+        floatingBtn.addEventListener('click', () => this.setZenMode(false));
+        document.body.appendChild(floatingBtn);
+      }
+    } else if (floatingBtn) {
+      floatingBtn.remove();
+    }
   }
 
   /**

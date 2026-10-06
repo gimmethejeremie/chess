@@ -125,7 +125,13 @@
     "toggleEval": "Thanh đánh giá thế trận (Eval)",
     "you": "Bạn",
     "bot": "Máy",
-    "timeoutWin": "{winner} thắng do đối phương hết giờ!"
+    "timeoutWin": "{winner} thắng do đối phương hết giờ!",
+    "zenMode": "Tập trung",
+    "exitZen": "Thoát tập trung (Z)",
+    "difficulty": "Cấp độ",
+    "clock": "Đồng hồ",
+    "levelChanged": "Đã chuyển sang Cấp độ {level}",
+    "clockChanged": "Đã thiết lập thời gian {time}"
   },
   "sandbox": {
     "title": "Tự Do (Sandbox)",
@@ -233,14 +239,14 @@
     "standard": {
       "title": "Tiêu chuẩn",
       "badge": "Tuân thủ luật",
-      "description": "Chơi cờ vua cổ điển đầy đủ luật lệ, kiểm tra nước đi hợp lệ, chiếu tướng, chiếu bí và hòa cờ.",
-      "action": "Chơi Tiêu Chuẩn"
+      "description": "Chơi với Máy (AI 3 cấp độ) hoặc 2 người. Đầy đủ luật cờ FIDE, đồng hồ thi đấu, nhận diện khai cuộc và thanh đánh giá thế trận.",
+      "action": "Vào ván đấu"
     },
     "sandbox": {
       "title": "Tự do (Sandbox)",
       "badge": "Bàn cờ tự do",
-      "description": "Bàn cờ thủ công không theo luật. Kéo thả tùy ý, xếp cờ tự do, xóa quân cờ hoặc xóa sạch bàn cờ.",
-      "action": "Vào Sandbox"
+      "description": "Bàn cờ thủ công không theo luật. Thử nghiệm thế cờ, xếp quân tự do, vẽ mũi tên chiến thuật và nhập xuất FEN.",
+      "action": "Vào bàn cờ"
     },
     "multiplayer": {
       "title": "Đối kháng",

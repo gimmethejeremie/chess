@@ -454,3 +454,27 @@
   color: var(--text-muted);
   padding: 1rem 0;
 }
+
+/* Zen Mode Active State */
+.sandbox-container.zen-mode .sandbox-header,
+.sandbox-container.zen-mode .piece-palette-card,
+.sandbox-container.zen-mode .sandbox-action-bar,
+.sandbox-container.zen-mode .sandbox-side-panel {
+  display: none !important;
+}
+
+.sandbox-container.zen-mode {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.sandbox-container.zen-mode .sandbox-layout {
+  justify-content: center;
+  align-items: center;
+}
+
+.sandbox-container.zen-mode .sandbox-play-area {
+  max-width: 640px;
+  width: 100%;
+}
+

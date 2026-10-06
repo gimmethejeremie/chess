@@ -152,31 +152,27 @@ function updateHomeScreenText() {
   // Update mode cards
   const cardStandard = document.querySelector('[data-mode="standard"]');
   if (cardStandard) {
-    const badge = cardStandard.querySelector('.mode-badge');
     const title = cardStandard.querySelector('.mode-card-title');
     const desc = cardStandard.querySelector('.mode-card-desc');
-    const btn = cardStandard.querySelector('[data-mode-btn="standard"]');
-    if (badge) badge.textContent = i18n.t('modes.standard.badge');
+    const linkText = cardStandard.querySelector('.mode-action-link span');
     if (title) title.textContent = i18n.t('modes.standard.title');
     if (desc) desc.textContent = i18n.t('modes.standard.description');
-    if (btn) btn.innerHTML = `<span>${i18n.t('modes.standard.action')}</span> ${icons.playArrow}`;
+    if (linkText) linkText.textContent = i18n.t('modes.standard.action');
   }
 
   const cardSandbox = document.querySelector('[data-mode="sandbox"]');
   if (cardSandbox) {
-    const badge = cardSandbox.querySelector('.mode-badge');
     const title = cardSandbox.querySelector('.mode-card-title');
     const desc = cardSandbox.querySelector('.mode-card-desc');
-    const btn = cardSandbox.querySelector('[data-mode-btn="sandbox"]');
-    if (badge) badge.textContent = i18n.t('modes.sandbox.badge');
+    const linkText = cardSandbox.querySelector('.mode-action-link span');
     if (title) title.textContent = i18n.t('modes.sandbox.title');
     if (desc) desc.textContent = i18n.t('modes.sandbox.description');
-    if (btn) btn.innerHTML = `<span>${i18n.t('modes.sandbox.action')}</span> ${icons.playArrow}`;
+    if (linkText) linkText.textContent = i18n.t('modes.sandbox.action');
   }
 }
 
 /**
- * Render Home Screen with Hero, 2 Mode Cards, and Anti-Slop Bento Showcase
+ * Render Home Screen with Hero and 2 Anti-Slop Crafted Mode Cards
  */
 function renderHomeScreen() {
   return `
@@ -184,7 +180,7 @@ function renderHomeScreen() {
       <h2 class="hero-title">${i18n.t('app.heroHeadline')}</h2>
     </section>
 
-    <!-- 2 Primary Modes Navigation Grid -->
+    <!-- 2 Primary Modes Navigation Grid (Crafted Anti-Slop Cards) -->
     <div class="modes-grid">
       <!-- Card 1: Standard -->
       <article
@@ -194,25 +190,19 @@ function renderHomeScreen() {
         role="button"
         aria-label="${i18n.t('modes.standard.title')}: ${i18n.t('modes.standard.description')}"
       >
-        <div class="mode-card-header">
+        <div class="mode-card-top">
           <div class="mode-icon-box">${icons.modeStandard}</div>
-          <span class="mode-badge">${i18n.t('modes.standard.badge')}</span>
+          <span class="mode-card-arrow">${icons.arrowRight}</span>
         </div>
         <div class="mode-card-body">
           <h3 class="mode-card-title">${i18n.t('modes.standard.title')}</h3>
           <p class="mode-card-desc">${i18n.t('modes.standard.description')}</p>
-          <div class="mode-card-tags">
-            <span class="mode-tag">AI 3 Cấp độ</span>
-            <span class="mode-tag">Đồng hồ thi đấu</span>
-            <span class="mode-tag">Biên bản FEN/PGN</span>
-            <span class="mode-tag">Xóa mũi tên</span>
-          </div>
         </div>
         <div class="mode-card-footer">
-          <button class="btn btn-primary" data-mode-btn="standard">
+          <span class="mode-action-link">
             <span>${i18n.t('modes.standard.action')}</span>
-            ${icons.playArrow}
-          </button>
+            ${icons.arrowRight}
+          </span>
         </div>
       </article>
 
@@ -224,25 +214,19 @@ function renderHomeScreen() {
         role="button"
         aria-label="${i18n.t('modes.sandbox.title')}: ${i18n.t('modes.sandbox.description')}"
       >
-        <div class="mode-card-header">
+        <div class="mode-card-top">
           <div class="mode-icon-box">${icons.modeSandbox}</div>
-          <span class="mode-badge">${i18n.t('modes.sandbox.badge')}</span>
+          <span class="mode-card-arrow">${icons.arrowRight}</span>
         </div>
         <div class="mode-card-body">
           <h3 class="mode-card-title">${i18n.t('modes.sandbox.title')}</h3>
           <p class="mode-card-desc">${i18n.t('modes.sandbox.description')}</p>
-          <div class="mode-card-tags">
-            <span class="mode-tag">Vẽ mũi tên Shift</span>
-            <span class="mode-tag">Bảng 12 quân cờ</span>
-            <span class="mode-tag">Nhập & Xuất FEN</span>
-            <span class="mode-tag">Lưu thế cờ</span>
-          </div>
         </div>
         <div class="mode-card-footer">
-          <button class="btn btn-primary" data-mode-btn="sandbox">
+          <span class="mode-action-link">
             <span>${i18n.t('modes.sandbox.action')}</span>
-            ${icons.playArrow}
-          </button>
+            ${icons.arrowRight}
+          </span>
         </div>
       </article>
     </div>

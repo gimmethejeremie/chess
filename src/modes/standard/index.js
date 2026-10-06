@@ -49,6 +49,7 @@ export class StandardChessGame {
     this.playerColor = 'w'; // 'w' | 'b'
     this.timeControl = '5+0'; // 'unlimited' | '3+2' | '5+0' | '10+0'
     this.aiTimeoutId = null;
+    this.isZenMode = false;
 
     // History snapshots for review: [{ index: 0, fen: '', san: '', lastMove: null }]
     this.historySnapshots = [
@@ -108,6 +109,7 @@ export class StandardChessGame {
         showEvalBar: true,
         isEvalVisible: true,
         onFlip: () => this.handleFlip(),
+        onZenToggle: (isZen) => this.setZenMode(isZen),
         onEvalToggle: (visible) => {
           if (this.evalBar) {
             this.evalBar.setVisible(visible);
@@ -148,6 +150,13 @@ export class StandardChessGame {
   }
 
   destroy() {
+    if (this.isZenMode) {
+      this.setZenMode(false);
+    }
+    const floatingBtn = document.getElementById('std-btn-zen-exit');
+    if (floatingBtn) {
+      floatingBtn.remove();
+    }
     if (this.aiTimeoutId) {
       clearTimeout(this.aiTimeoutId);
       this.aiTimeoutId = null;
@@ -344,6 +353,32 @@ export class StandardChessGame {
     const titleEl = document.querySelector('.standard-mode-title');
     if (titleEl) titleEl.textContent = i18n.t('standard.title');
 
+    const zenBtn = document.getElementById('std-btn-zen');
+    if (zenBtn) {
+      zenBtn.title = `${i18n.t('standard.zenMode')} (Z)`;
+      const labelSpan = zenBtn.querySelector('span');
+      if (labelSpan) labelSpan.textContent = i18n.t('standard.zenMode');
+    }
+
+    const oppLabel = document.getElementById('std-lbl-opponent');
+    if (oppLabel) oppLabel.textContent = i18n.t('standard.opponent');
+    const diffLabel = document.getElementById('std-lbl-difficulty');
+    if (diffLabel) diffLabel.textContent = i18n.t('standard.difficulty');
+    const clockLabel = document.getElementById('std-lbl-clock');
+    if (clockLabel) clockLabel.textContent = i18n.t('standard.clock');
+
+    const vsAiBtn = document.querySelector('#std-seg-opponent [data-mode="bot"] span');
+    if (vsAiBtn) vsAiBtn.textContent = i18n.t('standard.playVsBot');
+    const vsHumanBtn = document.querySelector('#std-seg-opponent [data-mode="pass"] span');
+    if (vsHumanBtn) vsHumanBtn.textContent = i18n.t('standard.playPassPlay');
+
+    const easyBtn = document.querySelector('#std-pills-bot-level [data-level="1"]');
+    if (easyBtn) easyBtn.textContent = i18n.t('standard.level1');
+    const medBtn = document.querySelector('#std-pills-bot-level [data-level="2"]');
+    if (medBtn) medBtn.textContent = i18n.t('standard.level2');
+    const hardBtn = document.querySelector('#std-pills-bot-level [data-level="3"]');
+    if (hardBtn) hardBtn.textContent = i18n.t('standard.level3');
+
     this.updateStatus();
     this.updatePlayerStrips();
     this.updateOpeningDisplay();
@@ -394,9 +429,17 @@ export class StandardChessGame {
             </button>
             <h2 class="standard-mode-title">${i18n.t('standard.title')}</h2>
           </div>
-          <div class="game-status-badge" id="std-turn-badge">
-            <span class="player-indicator white"></span>
-            <span id="std-turn-text">${i18n.t('standard.whiteTurn')}</span>
+          <div class="standard-header-right">
+            <button class="mode-zen-btn" id="std-btn-zen" title="${i18n.t('standard.zenMode')} (Z)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+              </svg>
+              <span>${i18n.t('standard.zenMode')}</span>
+            </button>
+            <div class="game-status-badge" id="std-turn-badge">
+              <span class="player-indicator white"></span>
+              <span id="std-turn-text">${i18n.t('standard.whiteTurn')}</span>
+            </div>
           </div>
         </header>
 
@@ -440,6 +483,42 @@ export class StandardChessGame {
 
           <!-- Side Panel Column -->
           <aside class="standard-side-panel">
+            <!-- Match Quick Config Panel -->
+            <div class="match-quick-panel">
+              <div class="match-row">
+                <span class="match-row-label" id="std-lbl-opponent">${i18n.t('standard.opponent')}</span>
+                <div class="match-segmented" id="std-seg-opponent" role="group">
+                  <button type="button" class="match-seg-btn ${this.gameMode === 'bot' ? 'active' : ''}" data-mode="bot">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x2="16" y1="16" x2="16"/></svg>
+                    <span>${i18n.t('standard.playVsBot')}</span>
+                  </button>
+                  <button type="button" class="match-seg-btn ${this.gameMode === 'pass' ? 'active' : ''}" data-mode="pass">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>${i18n.t('standard.playPassPlay')}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="match-row" id="std-row-bot-level" style="display: ${this.gameMode === 'bot' ? 'flex' : 'none'};">
+                <span class="match-row-label" id="std-lbl-difficulty">${i18n.t('standard.difficulty')}</span>
+                <div class="match-pill-group" id="std-pills-bot-level" role="group">
+                  <button type="button" class="match-pill-btn ${this.botLevel === 1 ? 'active' : ''}" data-level="1">${i18n.t('standard.level1')}</button>
+                  <button type="button" class="match-pill-btn ${this.botLevel === 2 ? 'active' : ''}" data-level="2">${i18n.t('standard.level2')}</button>
+                  <button type="button" class="match-pill-btn ${this.botLevel === 3 ? 'active' : ''}" data-level="3">${i18n.t('standard.level3')}</button>
+                </div>
+              </div>
+
+              <div class="match-row">
+                <span class="match-row-label" id="std-lbl-clock">${i18n.t('standard.clock')}</span>
+                <div class="match-pill-group" id="std-pills-clock" role="group">
+                  <button type="button" class="match-pill-btn ${this.timeControl === 'unlimited' ? 'active' : ''}" data-time="unlimited">∞</button>
+                  <button type="button" class="match-pill-btn ${this.timeControl === '3+2' ? 'active' : ''}" data-time="3+2">3+2</button>
+                  <button type="button" class="match-pill-btn ${this.timeControl === '5+0' ? 'active' : ''}" data-time="5+0">5+0</button>
+                  <button type="button" class="match-pill-btn ${this.timeControl === '10+0' ? 'active' : ''}" data-time="10+0">10+0</button>
+                </div>
+              </div>
+            </div>
+
             <div class="side-panel-header">
               <span class="side-panel-title">${i18n.t('standard.moves')}</span>
               <span id="std-move-count" style="font-weight: 500; font-size: 0.8rem; color: var(--text-secondary);">0 moves</span>
@@ -531,9 +610,30 @@ export class StandardChessGame {
       });
     }
 
-    // Keyboard navigation (Arrow keys)
+    // Zen Mode Header Button
+    const zenBtn = document.getElementById('std-btn-zen');
+    if (zenBtn) {
+      zenBtn.addEventListener('click', () => {
+        this.toggleZenMode();
+      });
+    }
+
+    // Keyboard navigation & Zen mode shortcut (Z, Esc)
     this.keyHandler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        this.toggleZenMode();
+        return;
+      }
+
+      if (e.key === 'Escape' && this.isZenMode) {
+        e.preventDefault();
+        this.setZenMode(false);
+        return;
+      }
+
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         this.jumpToHistory(this.reviewIndex - 1);
@@ -543,6 +643,31 @@ export class StandardChessGame {
       }
     };
     window.addEventListener('keydown', this.keyHandler);
+
+    // Match Quick Config Panel Events
+    const segButtons = this.container.querySelectorAll('#std-seg-opponent .match-seg-btn');
+    segButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-mode');
+        if (mode) this.setGameMode(mode);
+      });
+    });
+
+    const levelButtons = this.container.querySelectorAll('#std-pills-bot-level .match-pill-btn');
+    levelButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lvl = parseInt(btn.getAttribute('data-level'), 10);
+        if (lvl) this.setBotLevel(lvl);
+      });
+    });
+
+    const clockButtons = this.container.querySelectorAll('#std-pills-clock .match-pill-btn');
+    clockButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const time = btn.getAttribute('data-time');
+        if (time) this.setTimeControl(time);
+      });
+    });
 
     // Resume live game
     const resumeLiveBtn = document.getElementById('std-btn-resume-live');
@@ -567,6 +692,110 @@ export class StandardChessGame {
     document.getElementById('std-action-pgn')?.addEventListener('click', () => this.openPgnFenModal());
     document.getElementById('std-action-draw')?.addEventListener('click', () => this.promptDrawOffer());
     document.getElementById('std-action-resign')?.addEventListener('click', () => this.promptResign());
+  }
+
+  /* ========================================================================
+     Match Controls & Zen Mode
+     ======================================================================== */
+
+  toggleZenMode() {
+    this.setZenMode(!this.isZenMode);
+  }
+
+  setZenMode(active) {
+    this.isZenMode = Boolean(active);
+    if (!this.container) return;
+    const container = typeof this.container.querySelector === 'function'
+      ? this.container.querySelector('.standard-mode-container')
+      : null;
+    if (container) {
+      container.classList?.toggle('zen-mode', this.isZenMode);
+    }
+    const appLayout = typeof document !== 'undefined' ? document.querySelector('.standard-game-layout') : null;
+    if (appLayout) {
+      appLayout.classList?.toggle('zen-mode-active', this.isZenMode);
+    }
+    const zenBtn = typeof document !== 'undefined' ? document.getElementById('std-btn-zen') : null;
+    if (zenBtn) {
+      zenBtn.classList?.toggle('active', this.isZenMode);
+    }
+    if (this.boardToolbar) {
+      this.boardToolbar.setZen(this.isZenMode);
+    }
+
+    if (typeof document !== 'undefined') {
+      let floatingBtn = document.getElementById('std-btn-zen-exit');
+      if (this.isZenMode) {
+        if (!floatingBtn) {
+          floatingBtn = document.createElement('button');
+          floatingBtn.id = 'std-btn-zen-exit';
+          floatingBtn.className = 'zen-exit-floating-btn';
+          floatingBtn.innerHTML = `✕ <span>${i18n.t('standard.exitZen')}</span>`;
+          floatingBtn.title = `${i18n.t('standard.exitZen')} (Esc / Z)`;
+          floatingBtn.addEventListener('click', () => this.setZenMode(false));
+          document.body?.appendChild(floatingBtn);
+        }
+      } else if (floatingBtn) {
+        floatingBtn.remove();
+      }
+    }
+  }
+
+  setGameMode(mode) {
+    if (this.gameMode === mode) return;
+    this.gameMode = mode;
+    this.syncQuickPanelUI();
+    this.updatePlayerStrips();
+    this.showToast(mode === 'bot' ? i18n.t('standard.playVsBot') : i18n.t('standard.playPassPlay'));
+
+    if (mode === 'bot' && !this.isGameOver && this.chess.turn() !== this.playerColor) {
+      this.makeAiMoveIfNeeded();
+    }
+  }
+
+  setBotLevel(lvl) {
+    this.botLevel = lvl;
+    this.syncQuickPanelUI();
+    this.updatePlayerStrips();
+    const lvlName = lvl === 1 ? i18n.t('standard.level1') : lvl === 2 ? i18n.t('standard.level2') : i18n.t('standard.level3');
+    this.showToast(i18n.t('standard.levelChanged', { level: lvlName }));
+  }
+
+  setTimeControl(time) {
+    this.timeControl = time;
+    this.syncQuickPanelUI();
+    this.initClock();
+    const timeLabel = time === 'unlimited' ? '∞' : time;
+    this.showToast(i18n.t('standard.clockChanged', { time: timeLabel }));
+  }
+
+  syncQuickPanelUI() {
+    if (!this.container || typeof this.container.querySelectorAll !== 'function') return;
+    const segButtons = this.container.querySelectorAll('#std-seg-opponent .match-seg-btn');
+    if (segButtons) {
+      segButtons.forEach((b) => {
+        b.classList?.toggle('active', b.getAttribute?.('data-mode') === this.gameMode);
+      });
+    }
+
+    const botRow = typeof document !== 'undefined' ? document.getElementById('std-row-bot-level') : null;
+    if (botRow) {
+      botRow.style.display = this.gameMode === 'bot' ? 'flex' : 'none';
+    }
+
+    const levelButtons = this.container.querySelectorAll('#std-pills-bot-level .match-pill-btn');
+    if (levelButtons) {
+      levelButtons.forEach((b) => {
+        b.classList?.toggle('active', parseInt(b.getAttribute?.('data-level'), 10) === this.botLevel);
+      });
+    }
+
+    const clockButtons = this.container.querySelectorAll('#std-pills-clock .match-pill-btn');
+    if (clockButtons) {
+      clockButtons.forEach((b) => {
+        b.classList?.toggle('active', b.getAttribute?.('data-time') === this.timeControl);
+      });
+    }
   }
 
   /* ========================================================================
@@ -1285,6 +1514,7 @@ export class StandardChessGame {
     }
 
     this.initClock();
+    this.syncQuickPanelUI();
     this.updateUI();
     this.updateOpeningDisplay();
 
@@ -1580,6 +1810,7 @@ export class StandardChessGame {
   }
 
   showToast(msg) {
+    if (typeof document === 'undefined' || !document.body) return;
     const existing = document.querySelector('.toast-msg');
     if (existing) existing.remove();
 
