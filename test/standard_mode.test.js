@@ -217,6 +217,62 @@ describe('Standard Mode - Legal Rules Engine Verification', () => {
 
     game.destroy();
   });
+
+  it('exposes Game Review workflow methods and handles review navigation', async () => {
+    const { StandardChessGame } = await import('../src/modes/standard/index.js');
+    expect(typeof StandardChessGame.prototype.startReviewMode).toBe('function');
+    expect(typeof StandardChessGame.prototype.exitReviewMode).toBe('function');
+    expect(typeof StandardChessGame.prototype.navigateToReviewMove).toBe('function');
+    expect(typeof StandardChessGame.prototype.handleRetryMoveClick).toBe('function');
+    expect(typeof StandardChessGame.prototype.handleRetryMoveAttempt).toBe('function');
+
+    const dummyContainer = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [] };
+    const game = new StandardChessGame(dummyContainer);
+    expect(game.isReviewMode).toBe(false);
+    expect(game.reviewData).toBe(null);
+
+    // Mock history snapshots
+    game.historySnapshots = [
+      { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', san: '', lastMove: null },
+      { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1', san: 'e4', lastMove: { from: 'e2', to: 'e4' } },
+      { fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2', san: 'e5', lastMove: { from: 'e7', to: 'e5' } }
+    ];
+
+    // Mock review data
+    game.reviewData = {
+      whiteAccuracy: 88.5,
+      blackAccuracy: 82.1,
+      summary: {
+        white: { best: 1, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 },
+        black: { best: 1, good: 0, inaccuracy: 0, mistake: 0, blunder: 0 }
+      },
+      moves: [
+        { moveIndex: 1, color: 'w', san: 'e4', from: 'e2', to: 'e4', classification: 'best', currEval: 25, bestSan: 'e4' },
+        { moveIndex: 2, color: 'b', san: 'e5', from: 'e7', to: 'e5', classification: 'best', currEval: 20, bestSan: 'e5' }
+      ],
+      evalHistory: [0, 25, 20],
+      keyMoments: []
+    };
+
+    game.isReviewMode = true;
+    game.navigateToReviewMove(1);
+    expect(game.reviewMoveIndex).toBe(1);
+
+    game.navigateToReviewMove(2);
+    expect(game.reviewMoveIndex).toBe(2);
+
+    // Out of bounds clamping
+    game.navigateToReviewMove(10);
+    expect(game.reviewMoveIndex).toBe(2);
+
+    game.navigateToReviewMove(-5);
+    expect(game.reviewMoveIndex).toBe(0);
+
+    game.exitReviewMode();
+    expect(game.isReviewMode).toBe(false);
+
+    game.destroy();
+  });
 });
 
 

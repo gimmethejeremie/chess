@@ -42,10 +42,12 @@
 
 ### 1. Standard Chess Mode (`/src/modes/standard`)
 - **Full Legal Enforcement**: Castling, en passant, pawn promotion dialog (Queen, Rook, Bishop, Knight), check, checkmate, stalemate, threefold repetition, 50-move rule, and insufficient material.
+- **Stockfish AI & Real-time Evaluation**: WebAssembly-powered Stockfish engine running in dedicated Web Worker with 3 difficulty levels (Beginner, Intermediate, Master) and live evaluation bar.
+- **Post-Game Review & Advantage Graph**: Comprehensive game review with CAPS accuracy %, move classifications (💎 Brilliant, ⭐ Best, 👍 Good, ⚠️ Inaccuracy, ❌ Mistake, 💣 Blunder, 🎯 Missed Win), interactive SVG advantage curve, and "Retry Move" key moment trainer with tactical arrows.
 - **Move List & Review**: Scrollable SAN notation list with step-by-step history review (`|◀`, `◀`, `▶`, `▶|`) and single-click return to live position.
 - **Undo / Redo**: Step back or forward through played moves.
 - **PGN / FEN Import & Export**: One-click clipboard copy or text load.
-- **Actions**: Resign, Offer Draw, Flip Board, New Game with confirmation prompts.
+- **Actions**: Resign, Offer Draw, Flip Board, New Game, Review Game with confirmation prompts.
 
 ### 2. Sandbox Mode (`/src/modes/sandbox`)
 - **Freeform Board Editing**: Place any piece anywhere without legal constraints.

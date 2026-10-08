@@ -23,6 +23,9 @@ import { store } from '../../core/store/index.js';
 import { router } from '../../core/router/index.js';
 import { i18n } from '../../core/i18n/index.js';
 import { getBestMove, evaluateBoard } from '../../core/engine/ai.js';
+import { stockfishService } from '../../core/engine/stockfishService.js';
+import { analyzeGameReview, formatEvaluation } from '../../core/analysis/gameReview.js';
+import { AdvantageGraph } from '../../core/analysis/advantageGraph.js';
 import { identifyOpening } from '../../core/engine/openings.js';
 import { EvaluationBar } from '../../core/engine/evalBar.js';
 import { ChessClock } from '../../core/clock/index.js';
@@ -75,6 +78,14 @@ export class StandardChessGame {
     this.gameOverReason = '';
     this.gameOverResult = '';
 
+    // Game Review State
+    this.isReviewMode = false;
+    this.reviewData = null;
+    this.isAnalyzing = false;
+    this.reviewMoveIndex = 0;
+    this.advantageGraph = null;
+    this.isRetryingMove = false;
+
     // Active unsubscribers
     this.storeUnsub = null;
     this.i18nUnsub = null;
@@ -85,6 +96,9 @@ export class StandardChessGame {
   mount() {
     this.renderLayout();
     this.initBoard();
+
+    // Warm up Stockfish engine worker in background
+    stockfishService.init().catch(() => {});
 
     // Mount Evaluation Bar
     const evalMount = document.getElementById('std-eval-mount');
@@ -197,6 +211,10 @@ export class StandardChessGame {
       this.board.destroy();
       this.board = null;
     }
+    if (this.advantageGraph) {
+      this.advantageGraph = null;
+    }
+    stockfishService.stop();
     this.container.innerHTML = '';
   }
 
@@ -333,11 +351,20 @@ export class StandardChessGame {
 
   updateEvalBar() {
     if (!this.evalBar) return;
-    const activeChess = this.isLive()
-      ? this.chess
-      : new Chess(this.historySnapshots[this.reviewIndex].fen);
-    const score = evaluateBoard(activeChess);
-    this.evalBar.update(score);
+    const activeFen = this.isLive()
+      ? this.chess.fen()
+      : this.historySnapshots[this.reviewIndex].fen;
+
+    // Fast static evaluation first so UI responds immediately
+    const fallbackScore = evaluateBoard(new Chess(activeFen));
+    this.evalBar.update(fallbackScore);
+
+    // Deep Stockfish evaluation in background
+    stockfishService.evaluatePosition(activeFen, 6).then((res) => {
+      if (this.evalBar && !this.isGameOver && !this.isReviewMode) {
+        this.evalBar.update(res.scoreCp);
+      }
+    }).catch(() => {});
   }
 
   /* ========================================================================
@@ -483,83 +510,89 @@ export class StandardChessGame {
 
           <!-- Side Panel Column -->
           <aside class="standard-side-panel">
-            <!-- Match Quick Config Panel -->
-            <div class="match-quick-panel">
-              <div class="match-row">
-                <span class="match-row-label" id="std-lbl-opponent">${i18n.t('standard.opponent')}</span>
-                <div class="match-segmented" id="std-seg-opponent" role="group">
-                  <button type="button" class="match-seg-btn ${this.gameMode === 'bot' ? 'active' : ''}" data-mode="bot">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x2="16" y1="16" x2="16"/></svg>
-                    <span>${i18n.t('standard.playVsBot')}</span>
-                  </button>
-                  <button type="button" class="match-seg-btn ${this.gameMode === 'pass' ? 'active' : ''}" data-mode="pass">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span>${i18n.t('standard.playPassPlay')}</span>
-                  </button>
+            <div id="std-normal-side-panel" style="display: flex; flex-direction: column; height: 100%;">
+              <!-- Match Quick Config Panel -->
+              <div class="match-quick-panel">
+                <div class="match-row">
+                  <span class="match-row-label" id="std-lbl-opponent">${i18n.t('standard.opponent')}</span>
+                  <div class="match-segmented" id="std-seg-opponent" role="group">
+                    <button type="button" class="match-seg-btn ${this.gameMode === 'bot' ? 'active' : ''}" data-mode="bot">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x2="16" y1="16" x2="16"/></svg>
+                      <span>${i18n.t('standard.playVsBot')}</span>
+                    </button>
+                    <button type="button" class="match-seg-btn ${this.gameMode === 'pass' ? 'active' : ''}" data-mode="pass">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span>${i18n.t('standard.playPassPlay')}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="match-row" id="std-row-bot-level" style="display: ${this.gameMode === 'bot' ? 'flex' : 'none'};">
+                  <span class="match-row-label" id="std-lbl-difficulty">${i18n.t('standard.difficulty')}</span>
+                  <div class="match-pill-group" id="std-pills-bot-level" role="group">
+                    <button type="button" class="match-pill-btn ${this.botLevel === 1 ? 'active' : ''}" data-level="1">${i18n.t('standard.level1')}</button>
+                    <button type="button" class="match-pill-btn ${this.botLevel === 2 ? 'active' : ''}" data-level="2">${i18n.t('standard.level2')}</button>
+                    <button type="button" class="match-pill-btn ${this.botLevel === 3 ? 'active' : ''}" data-level="3">${i18n.t('standard.level3')}</button>
+                  </div>
+                </div>
+
+                <div class="match-row">
+                  <span class="match-row-label" id="std-lbl-clock">${i18n.t('standard.clock')}</span>
+                  <div class="match-pill-group" id="std-pills-clock" role="group">
+                    <button type="button" class="match-pill-btn ${this.timeControl === 'unlimited' ? 'active' : ''}" data-time="unlimited">∞</button>
+                    <button type="button" class="match-pill-btn ${this.timeControl === '3+2' ? 'active' : ''}" data-time="3+2">3+2</button>
+                    <button type="button" class="match-pill-btn ${this.timeControl === '5+0' ? 'active' : ''}" data-time="5+0">5+0</button>
+                    <button type="button" class="match-pill-btn ${this.timeControl === '10+0' ? 'active' : ''}" data-time="10+0">10+0</button>
+                  </div>
                 </div>
               </div>
 
-              <div class="match-row" id="std-row-bot-level" style="display: ${this.gameMode === 'bot' ? 'flex' : 'none'};">
-                <span class="match-row-label" id="std-lbl-difficulty">${i18n.t('standard.difficulty')}</span>
-                <div class="match-pill-group" id="std-pills-bot-level" role="group">
-                  <button type="button" class="match-pill-btn ${this.botLevel === 1 ? 'active' : ''}" data-level="1">${i18n.t('standard.level1')}</button>
-                  <button type="button" class="match-pill-btn ${this.botLevel === 2 ? 'active' : ''}" data-level="2">${i18n.t('standard.level2')}</button>
-                  <button type="button" class="match-pill-btn ${this.botLevel === 3 ? 'active' : ''}" data-level="3">${i18n.t('standard.level3')}</button>
+              <div class="side-panel-header">
+                <span class="side-panel-title">${i18n.t('standard.moves')}</span>
+                <span id="std-move-count" style="font-weight: 500; font-size: 0.8rem; color: var(--text-secondary);">0 moves</span>
+              </div>
+
+              <!-- Opening Explorer Strip -->
+              <div class="opening-name-strip" id="std-opening-strip" style="display: none;">
+                <span class="opening-eco-badge" id="std-opening-eco">A00</span>
+                <span class="opening-name-text" id="std-opening-name">...</span>
+              </div>
+
+              <!-- Scrollable Move List -->
+              <div class="move-list-scroll" id="std-move-list-scroll">
+                <div class="empty-moves-text" id="std-empty-moves">${i18n.t('standard.noMoves')}</div>
+                <table class="move-list-table" id="std-move-list-table" style="display: none;">
+                  <tbody id="std-move-list-body"></tbody>
+                </table>
+              </div>
+
+              <!-- History Navigation Buttons -->
+              <div class="history-nav-toolbar">
+                <div class="history-step-group" role="group" aria-label="Move History Navigation">
+                  <button class="nav-btn" id="std-nav-first" title="First move" aria-label="First move">${icons.first}</button>
+                  <button class="nav-btn" id="std-nav-prev" title="Previous move (Left arrow)" aria-label="Previous move">${icons.prev}</button>
+                  <button class="nav-btn" id="std-nav-next" title="Next move (Right arrow)" aria-label="Next move">${icons.next}</button>
+                  <button class="nav-btn" id="std-nav-last" title="Latest move" aria-label="Latest move">${icons.last}</button>
+                </div>
+                <div class="history-nav-separator"></div>
+                <div class="history-undo-group" role="group" aria-label="Undo and Redo">
+                  <button class="nav-btn" id="std-btn-undo" title="${i18n.t('standard.undo')}" aria-label="${i18n.t('standard.undo')}">${icons.undo}<span>${i18n.t('standard.undo')}</span></button>
+                  <button class="nav-btn" id="std-btn-redo" title="${i18n.t('standard.redo')}" aria-label="${i18n.t('standard.redo')}">${icons.redo}<span>${i18n.t('standard.redo')}</span></button>
                 </div>
               </div>
 
-              <div class="match-row">
-                <span class="match-row-label" id="std-lbl-clock">${i18n.t('standard.clock')}</span>
-                <div class="match-pill-group" id="std-pills-clock" role="group">
-                  <button type="button" class="match-pill-btn ${this.timeControl === 'unlimited' ? 'active' : ''}" data-time="unlimited">∞</button>
-                  <button type="button" class="match-pill-btn ${this.timeControl === '3+2' ? 'active' : ''}" data-time="3+2">3+2</button>
-                  <button type="button" class="match-pill-btn ${this.timeControl === '5+0' ? 'active' : ''}" data-time="5+0">5+0</button>
-                  <button type="button" class="match-pill-btn ${this.timeControl === '10+0' ? 'active' : ''}" data-time="10+0">10+0</button>
-                </div>
+              <!-- Game Actions Grid -->
+              <div class="game-actions-panel">
+                <button class="action-btn" id="std-action-new">${icons.reset}<span>${i18n.t('standard.newGame')}</span></button>
+                <button class="action-btn" id="std-action-review" title="${i18n.t('standard.gameReviewBtn')}">${icons.analytics}<span>${i18n.t('standard.gameReviewBtn')}</span></button>
+                <button class="action-btn" id="std-action-pgn">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
+                <button class="action-btn" id="std-action-draw">${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span></button>
+                <button class="action-btn danger" id="std-action-resign">${icons.flag}<span>${i18n.t('standard.resign')}</span></button>
               </div>
             </div>
 
-            <div class="side-panel-header">
-              <span class="side-panel-title">${i18n.t('standard.moves')}</span>
-              <span id="std-move-count" style="font-weight: 500; font-size: 0.8rem; color: var(--text-secondary);">0 moves</span>
-            </div>
-
-            <!-- Opening Explorer Strip -->
-            <div class="opening-name-strip" id="std-opening-strip" style="display: none;">
-              <span class="opening-eco-badge" id="std-opening-eco">A00</span>
-              <span class="opening-name-text" id="std-opening-name">...</span>
-            </div>
-
-            <!-- Scrollable Move List -->
-            <div class="move-list-scroll" id="std-move-list-scroll">
-              <div class="empty-moves-text" id="std-empty-moves">${i18n.t('standard.noMoves')}</div>
-              <table class="move-list-table" id="std-move-list-table" style="display: none;">
-                <tbody id="std-move-list-body"></tbody>
-              </table>
-            </div>
-
-            <!-- History Navigation Buttons -->
-            <div class="history-nav-toolbar">
-              <div class="history-step-group" role="group" aria-label="Move History Navigation">
-                <button class="nav-btn" id="std-nav-first" title="First move" aria-label="First move">${icons.first}</button>
-                <button class="nav-btn" id="std-nav-prev" title="Previous move (Left arrow)" aria-label="Previous move">${icons.prev}</button>
-                <button class="nav-btn" id="std-nav-next" title="Next move (Right arrow)" aria-label="Next move">${icons.next}</button>
-                <button class="nav-btn" id="std-nav-last" title="Latest move" aria-label="Latest move">${icons.last}</button>
-              </div>
-              <div class="history-nav-separator"></div>
-              <div class="history-undo-group" role="group" aria-label="Undo and Redo">
-                <button class="nav-btn" id="std-btn-undo" title="${i18n.t('standard.undo')}" aria-label="${i18n.t('standard.undo')}">${icons.undo}<span>${i18n.t('standard.undo')}</span></button>
-                <button class="nav-btn" id="std-btn-redo" title="${i18n.t('standard.redo')}" aria-label="${i18n.t('standard.redo')}">${icons.redo}<span>${i18n.t('standard.redo')}</span></button>
-              </div>
-            </div>
-
-            <!-- Game Actions Grid -->
-            <div class="game-actions-panel">
-              <button class="action-btn" id="std-action-new">${icons.reset}<span>${i18n.t('standard.newGame')}</span></button>
-              <button class="action-btn" id="std-action-pgn">${icons.pgn}<span>${i18n.t('standard.pgnFen')}</span></button>
-              <button class="action-btn" id="std-action-draw">${icons.handshake}<span>${i18n.t('standard.offerDraw')}</span></button>
-              <button class="action-btn danger" id="std-action-resign">${icons.flag}<span>${i18n.t('standard.resign')}</span></button>
-            </div>
+            <!-- Game Review Container (Hidden by default) -->
+            <div id="std-review-mount" style="display: none; height: 100%;"></div>
           </aside>
         </div>
       </div>
@@ -628,18 +661,33 @@ export class StandardChessGame {
         return;
       }
 
-      if (e.key === 'Escape' && this.isZenMode) {
-        e.preventDefault();
-        this.setZenMode(false);
-        return;
+      if (e.key === 'Escape') {
+        if (this.isReviewMode) {
+          e.preventDefault();
+          this.exitReviewMode();
+          return;
+        }
+        if (this.isZenMode) {
+          e.preventDefault();
+          this.setZenMode(false);
+          return;
+        }
       }
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        this.jumpToHistory(this.reviewIndex - 1);
+        if (this.isReviewMode) {
+          this.navigateToReviewMove(this.reviewMoveIndex - 1);
+        } else {
+          this.jumpToHistory(this.reviewIndex - 1);
+        }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        this.jumpToHistory(this.reviewIndex + 1);
+        if (this.isReviewMode) {
+          this.navigateToReviewMove(this.reviewMoveIndex + 1);
+        } else {
+          this.jumpToHistory(this.reviewIndex + 1);
+        }
       }
     };
     window.addEventListener('keydown', this.keyHandler);
@@ -689,6 +737,7 @@ export class StandardChessGame {
 
     // Game Actions
     document.getElementById('std-action-new')?.addEventListener('click', () => this.promptNewGame());
+    document.getElementById('std-action-review')?.addEventListener('click', () => this.startReviewMode());
     document.getElementById('std-action-pgn')?.addEventListener('click', () => this.openPgnFenModal());
     document.getElementById('std-action-draw')?.addEventListener('click', () => this.promptDrawOffer());
     document.getElementById('std-action-resign')?.addEventListener('click', () => this.promptResign());
@@ -807,6 +856,20 @@ export class StandardChessGame {
   }
 
   handleSquareClick(square, piece) {
+    if (this.isReviewMode) {
+      if (!this.isRetryingMove) return;
+      const selected = this.board?.highlights?.selected;
+      if (selected) {
+        this.handleRetryMoveAttempt(selected, square);
+      } else {
+        const move = this.reviewData?.moves?.[this.reviewMoveIndex - 1];
+        if (move && piece && piece.charAt(0) === move.color) {
+          this.board.setHighlights({ selected: square, legalMoves: [] });
+        }
+      }
+      return;
+    }
+
     if (this.isGameOver) return;
 
     // In bot mode, ignore clicks when it's not player's turn
@@ -833,6 +896,15 @@ export class StandardChessGame {
   }
 
   handleDragStart(square, piece) {
+    if (this.isReviewMode) {
+      if (!this.isRetryingMove) return;
+      const move = this.reviewData?.moves?.[this.reviewMoveIndex - 1];
+      if (move && piece && piece.charAt(0) === move.color) {
+        this.board.setHighlights({ selected: square, legalMoves: [] });
+      }
+      return;
+    }
+
     if (this.isGameOver) return;
 
     if (this.gameMode === 'bot' && this.chess.turn() !== this.playerColor) {
@@ -852,6 +924,12 @@ export class StandardChessGame {
   }
 
   handleDrop(fromSquare, toSquare) {
+    if (this.isReviewMode) {
+      if (!this.isRetryingMove) return;
+      this.handleRetryMoveAttempt(fromSquare, toSquare);
+      return;
+    }
+
     if (this.isGameOver) return;
 
     if (this.gameMode === 'bot' && this.chess.turn() !== this.playerColor) {
@@ -1008,25 +1086,33 @@ export class StandardChessGame {
     }, 450 + Math.random() * 200);
   }
 
-  makeAiMove() {
+  async makeAiMove() {
     this.aiTimeoutId = null;
-    if (this.isGameOver) return;
+    if (this.isGameOver || this.isReviewMode) return;
 
     const botColor = this.playerColor === 'w' ? 'b' : 'w';
     if (this.chess.turn() !== botColor) {
       if (this.board) {
-        this.board.interactive = this.isLive() && !this.isGameOver;
+        this.board.interactive = this.isLive() && !this.isGameOver && !this.isReviewMode;
       }
       return;
     }
 
-    const bestMove = getBestMove(this.chess, this.botLevel);
-    if (bestMove) {
+    let bestMove = null;
+    try {
+      bestMove = await stockfishService.getBestMove(this.chess.fen(), {
+        level: this.botLevel
+      });
+    } catch {
+      bestMove = getBestMove(this.chess, this.botLevel);
+    }
+
+    if (bestMove && !this.isGameOver && this.chess.turn() === botColor) {
       this.executeMove(bestMove);
     }
 
     if (this.board) {
-      this.board.interactive = this.isLive() && !this.isGameOver;
+      this.board.interactive = this.isLive() && !this.isGameOver && !this.isReviewMode;
     }
   }
 
@@ -1172,16 +1258,24 @@ export class StandardChessGame {
             <p class="gameover-reason">${title}<br /><span style="font-size: 0.9rem; font-weight: normal; color: var(--text-secondary);">${reason}</span></p>
           </div>
           <div class="dialog-body" style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <button class="btn btn-primary" id="std-btn-new-game-dialog" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
+            <button class="btn btn-primary" id="std-btn-game-review-dialog" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;">
+              ${icons.analytics} <span>${i18n.t('standard.gameReviewBtn')}</span>
+            </button>
+            <button class="btn btn-secondary" id="std-btn-new-game-dialog" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;">
               ${icons.reset} <span>${i18n.t('standard.newGame')}</span>
             </button>
-            <button class="btn btn-secondary" id="std-btn-review-board-dialog">
+            <button class="btn btn-ghost" id="std-btn-review-board-dialog">
               <span>${i18n.t('standard.close')}</span>
             </button>
           </div>
         </div>
       </div>
     `;
+
+    document.getElementById('std-btn-game-review-dialog')?.addEventListener('click', () => {
+      this.closeModals();
+      this.startReviewMode();
+    });
 
     document.getElementById('std-btn-new-game-dialog')?.addEventListener('click', () => {
       this.closeModals();
@@ -1205,22 +1299,27 @@ export class StandardChessGame {
 
     // Load position onto the board
     const tempChess = new Chess(snapshot.fen);
-    this.board.setPosition(tempChess.board());
+    if (this.board) {
+      this.board.setPosition(tempChess.board());
+
+      const checkSquare = tempChess.isCheck()
+        ? this.findKingSquare(tempChess.turn(), tempChess)
+        : null;
+
+      this.board.setHighlights({
+        selected: null,
+        legalMoves: [],
+        lastMove: snapshot.lastMove,
+        check: checkSquare
+      });
+    }
 
     const isLive = this.isLive();
-    const checkSquare = tempChess.isCheck()
-      ? this.findKingSquare(tempChess.turn(), tempChess)
-      : null;
-
-    this.board.setHighlights({
-      selected: null,
-      legalMoves: [],
-      lastMove: snapshot.lastMove,
-      check: checkSquare
-    });
 
     // Make board interactive only if live and game not over
-    this.board.interactive = isLive && !this.isGameOver && (this.gameMode !== 'bot' || this.chess.turn() === this.playerColor);
+    if (this.board) {
+      this.board.interactive = isLive && !this.isGameOver && (this.gameMode !== 'bot' || this.chess.turn() === this.playerColor);
+    }
 
     this.updateUI();
     this.updateOpeningDisplay();
@@ -2030,6 +2129,380 @@ export class StandardChessGame {
         reviewText.textContent = `${i18n.t('standard.reviewing')} #${this.reviewIndex} of ${totalSnapshots - 1}`;
       }
     }
+  }
+
+  /* ========================================================================
+     Game Review & Analysis Workflow
+     ======================================================================== */
+
+  async startReviewMode() {
+    if (this.historySnapshots.length <= 1) {
+      this.showToast(i18n.t('standard.noMoves') || 'Chưa có nước đi nào để phân tích.');
+      return;
+    }
+
+    this.closeModals();
+    this.isReviewMode = true;
+    this.isAnalyzing = true;
+    this.isRetryingMove = false;
+
+    // Toggle panels
+    const normalPanel = document.getElementById('std-normal-side-panel');
+    const reviewMount = document.getElementById('std-review-mount');
+    if (normalPanel) normalPanel.style.display = 'none';
+    if (reviewMount) {
+      reviewMount.style.display = 'flex';
+      this.renderReviewLoading();
+    }
+
+    try {
+      const reviewResult = await analyzeGameReview(this.historySnapshots, (progress) => {
+        this.updateReviewLoadingProgress(progress);
+      });
+
+      this.reviewData = reviewResult;
+      this.isAnalyzing = false;
+      this.reviewMoveIndex = Math.min(1, this.historySnapshots.length - 1);
+      this.renderReviewView();
+      this.navigateToReviewMove(this.reviewMoveIndex);
+    } catch (err) {
+      console.error('[GameReview] Failed to analyze game:', err);
+      this.exitReviewMode();
+    }
+  }
+
+  renderReviewLoading() {
+    const mount = document.getElementById('std-review-mount');
+    if (!mount) return;
+
+    mount.innerHTML = `
+      <div class="review-loading-overlay">
+        <div style="color: var(--accent-color);">${icons.analytics}</div>
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin: 0;">${i18n.t('standard.analyzing')}</h3>
+        <div class="review-progress-bar">
+          <div class="review-progress-fill" id="std-review-progress-fill" style="width: 0%;"></div>
+        </div>
+        <span id="std-review-progress-text" style="font-size: 0.8rem; color: var(--text-secondary);">0%</span>
+      </div>
+    `;
+  }
+
+  updateReviewLoadingProgress({ current, total, percent }) {
+    const fill = document.getElementById('std-review-progress-fill');
+    const text = document.getElementById('std-review-progress-text');
+    if (fill) fill.style.width = `${percent}%`;
+    if (text) {
+      text.textContent = `${i18n.t('standard.analyzingProgress', { current, total }) || `Đang phân tích nước ${current}/${total}...`} (${percent}%)`;
+    }
+  }
+
+  renderReviewView() {
+    const mount = document.getElementById('std-review-mount');
+    if (!mount || !this.reviewData) return;
+
+    const data = this.reviewData;
+    const summary = data.summary;
+    const totalBest = (summary.white.best || 0) + (summary.black.best || 0);
+    const totalGood = (summary.white.good || 0) + (summary.black.good || 0);
+    const totalInacc = (summary.white.inaccuracy || 0) + (summary.black.inaccuracy || 0);
+    const totalMistake = (summary.white.mistake || 0) + (summary.black.mistake || 0);
+    const totalBlunder = (summary.white.blunder || 0) + (summary.black.blunder || 0);
+
+    mount.innerHTML = `
+      <div class="std-review-container">
+        <!-- Top Bar -->
+        <div class="review-top-bar">
+          <div class="review-title-badge">
+            ${icons.analytics} <span>${i18n.t('standard.gameReview')}</span>
+          </div>
+          <button class="btn btn-secondary" id="std-btn-exit-review" style="min-height: 28px; padding: 0.2rem 0.5rem; font-size: 0.75rem;">
+            ${icons.close} <span>${i18n.t('standard.exitReview')}</span>
+          </button>
+        </div>
+
+        <!-- Accuracy Grid -->
+        <div class="review-accuracy-grid">
+          <div class="review-acc-card">
+            <span class="review-acc-val">${data.whiteAccuracy}%</span>
+            <span class="review-acc-label">⚪ ${i18n.t('standard.whiteAccuracy')}</span>
+          </div>
+          <div class="review-acc-card">
+            <span class="review-acc-val">${data.blackAccuracy}%</span>
+            <span class="review-acc-label">⚫ ${i18n.t('standard.blackAccuracy')}</span>
+          </div>
+        </div>
+
+        <!-- Move Breakdown Tags -->
+        <div class="review-breakdown-tags">
+          <span class="review-tag best" title="${i18n.t('review.best')}">⭐ ${totalBest}</span>
+          <span class="review-tag good" title="${i18n.t('review.good')}">👍 ${totalGood}</span>
+          <span class="review-tag inaccuracy" title="${i18n.t('review.inaccuracy')}">⚠️ ${totalInacc}</span>
+          <span class="review-tag mistake" title="${i18n.t('review.mistake')}">❌ ${totalMistake}</span>
+          <span class="review-tag blunder" title="${i18n.t('review.blunder')}">💣 ${totalBlunder}</span>
+        </div>
+
+        <!-- Advantage Graph Mount -->
+        <div id="std-review-graph-mount" style="width: 100%;"></div>
+
+        <!-- Selected Move Card -->
+        <div class="review-move-card" id="std-review-move-card">
+          <!-- Populated by navigateToReviewMove -->
+        </div>
+
+        <!-- Key Moments Quick Jump -->
+        <div style="display: flex; gap: 0.35rem; justify-content: space-between;">
+          <button class="nav-btn" id="std-review-prev-mistake" style="flex: 1;" title="${i18n.t('standard.prevMistake')}">
+            ${icons.alertTriangle} <span>${i18n.t('standard.prevMistake')}</span>
+          </button>
+          <button class="nav-btn" id="std-review-next-mistake" style="flex: 1;" title="${i18n.t('standard.nextMistake')}">
+            ${icons.alertTriangle} <span>${i18n.t('standard.nextMistake')}</span>
+          </button>
+        </div>
+
+        <!-- Navigation Footer (First, Prev, Indicator, Next, Last) -->
+        <div class="review-nav-footer">
+          <button class="nav-btn" id="std-rev-nav-first" title="First">${icons.first}</button>
+          <button class="nav-btn" id="std-rev-nav-prev" title="Prev">${icons.prev}</button>
+          <span id="std-rev-move-indicator" style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); min-width: 60px; text-align: center;">1 / ${this.historySnapshots.length - 1}</span>
+          <button class="nav-btn" id="std-rev-nav-next" title="Next">${icons.next}</button>
+          <button class="nav-btn" id="std-rev-nav-last" title="Last">${icons.last}</button>
+        </div>
+      </div>
+    `;
+
+    // Mount Advantage Graph
+    const graphMount = document.getElementById('std-review-graph-mount');
+    if (graphMount) {
+      this.advantageGraph = new AdvantageGraph(graphMount, {
+        evalHistory: data.evalHistory,
+        currentIndex: this.reviewMoveIndex,
+        onSelectMove: (idx) => this.navigateToReviewMove(idx)
+      });
+    }
+
+    // Attach review listeners
+    document.getElementById('std-btn-exit-review')?.addEventListener('click', () => this.exitReviewMode());
+    document.getElementById('std-rev-nav-first')?.addEventListener('click', () => this.navigateToReviewMove(0));
+    document.getElementById('std-rev-nav-prev')?.addEventListener('click', () => this.navigateToReviewMove(this.reviewMoveIndex - 1));
+    document.getElementById('std-rev-nav-next')?.addEventListener('click', () => this.navigateToReviewMove(this.reviewMoveIndex + 1));
+    document.getElementById('std-rev-nav-last')?.addEventListener('click', () => this.navigateToReviewMove(this.historySnapshots.length - 1));
+
+    document.getElementById('std-review-prev-mistake')?.addEventListener('click', () => {
+      const prevMoments = (data.keyMoments || []).filter((idx) => idx < this.reviewMoveIndex);
+      if (prevMoments.length > 0) {
+        this.navigateToReviewMove(prevMoments[prevMoments.length - 1]);
+      } else if (data.keyMoments?.length > 0) {
+        this.navigateToReviewMove(data.keyMoments[data.keyMoments.length - 1]);
+      }
+    });
+
+    document.getElementById('std-review-next-mistake')?.addEventListener('click', () => {
+      const nextMoments = (data.keyMoments || []).filter((idx) => idx > this.reviewMoveIndex);
+      if (nextMoments.length > 0) {
+        this.navigateToReviewMove(nextMoments[0]);
+      } else if (data.keyMoments?.length > 0) {
+        this.navigateToReviewMove(data.keyMoments[0]);
+      }
+    });
+  }
+
+  navigateToReviewMove(moveIdx) {
+    const total = this.historySnapshots.length - 1;
+    const clampedIdx = Math.max(0, Math.min(total, moveIdx));
+    this.reviewMoveIndex = clampedIdx;
+    this.isRetryingMove = false;
+
+    // Update needle in AdvantageGraph
+    if (this.advantageGraph) {
+      this.advantageGraph.setCurrentIndex(clampedIdx);
+    }
+
+    // Update move counter text
+    const indicator = document.getElementById('std-rev-move-indicator');
+    if (indicator) {
+      indicator.textContent = `${clampedIdx} / ${total}`;
+    }
+
+    // Update board state
+    const targetSnap = this.historySnapshots[clampedIdx];
+    if (this.board && targetSnap) {
+      const boardPos = new Chess(targetSnap.fen).board();
+      this.board.setPosition(boardPos);
+      this.board.interactive = false;
+      this.board.clearArrows();
+      this.board.clearHighlights();
+    }
+
+    // Update Eval Bar
+    if (this.evalBar && this.reviewData?.evalHistory) {
+      const evalVal = this.reviewData.evalHistory[clampedIdx] || 0;
+      this.evalBar.update(evalVal);
+    }
+
+    // Populate Move Card
+    const cardEl = document.getElementById('std-review-move-card');
+    if (!cardEl || !this.reviewData) return;
+
+    if (clampedIdx === 0) {
+      cardEl.innerHTML = `
+        <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-align: center; padding: 0.5rem 0;">
+          ${i18n.t('sandbox.startingPos') || 'Thế cờ xuất phát'}
+        </div>
+      `;
+      return;
+    }
+
+    const moveData = this.reviewData.moves[clampedIdx - 1];
+    if (!moveData) return;
+
+    const classLabel = i18n.t(`review.${moveData.classification}`) || moveData.classification;
+    const evalStr = formatEvaluation(moveData.currEval, moveData.mate);
+    const isNeedsWork = ['inaccuracy', 'mistake', 'blunder', 'missedWin'].includes(moveData.classification);
+
+    cardEl.innerHTML = `
+      <div class="review-move-header">
+        <div style="display: flex; align-items: center; gap: 0.4rem;">
+          <span style="font-weight: 800; font-size: 0.95rem;">${clampedIdx}. ${moveData.san}</span>
+          <span class="review-move-badge ${moveData.classification}">${classLabel}</span>
+        </div>
+        <span style="font-size: 0.775rem; font-weight: 700; color: var(--text-secondary);">Eval: ${evalStr}</span>
+      </div>
+
+      <div class="review-recommendation-box">
+        <strong>${i18n.t('standard.bestMovePrompt')}:</strong> ${moveData.bestSan}
+      </div>
+
+      ${isNeedsWork ? `
+        <button class="review-retry-btn" id="std-btn-retry-move">
+          ${icons.retry} <span>${i18n.t('standard.retryMove')}</span>
+        </button>
+      ` : ''}
+
+      <div id="std-retry-feedback"></div>
+    `;
+
+    // Render arrows
+    if (this.board) {
+      if (isNeedsWork) {
+        // Red arrow for mistake
+        if (moveData.from && moveData.to) {
+          this.board.addArrow(moveData.from, moveData.to, 'rgba(239, 68, 68, 0.9)', 'arrowhead-red');
+        }
+        // Green arrow for engine suggestion
+        if (moveData.bestMove && moveData.bestMove.from && moveData.bestMove.to) {
+          this.board.addArrow(moveData.bestMove.from, moveData.bestMove.to, 'rgba(34, 197, 94, 0.9)', 'arrowhead-green');
+        }
+      } else {
+        // Green arrow for solid / best move
+        if (moveData.from && moveData.to) {
+          this.board.addArrow(moveData.from, moveData.to, 'rgba(34, 197, 94, 0.9)', 'arrowhead-green');
+        }
+      }
+
+      if (moveData.from && moveData.to) {
+        this.board.setHighlights({
+          lastMove: { from: moveData.from, to: moveData.to }
+        });
+      }
+    }
+
+    // Attach retry button listener
+    document.getElementById('std-btn-retry-move')?.addEventListener('click', () => {
+      this.handleRetryMoveClick();
+    });
+  }
+
+  handleRetryMoveClick() {
+    if (!this.reviewData || this.reviewMoveIndex <= 0) return;
+    const moveData = this.reviewData.moves[this.reviewMoveIndex - 1];
+    if (!moveData || !this.board) return;
+
+    this.isRetryingMove = true;
+
+    // Load previous FEN so player can make the move
+    const prevBoard = new Chess(moveData.prevFen).board();
+    this.board.setPosition(prevBoard);
+    this.board.clearArrows();
+    this.board.clearHighlights();
+    this.board.interactive = true;
+
+    const feedbackEl = document.getElementById('std-retry-feedback');
+    if (feedbackEl) {
+      const sideName = moveData.color === 'w' ? 'Trắng' : 'Đen';
+      feedbackEl.innerHTML = `
+        <div class="retry-feedback-toast" style="background-color: var(--bg-surface-hover); color: var(--text-primary);">
+          Hãy tìm nước đi tốt hơn cho bên ${sideName} trên bàn cờ!
+        </div>
+      `;
+    }
+  }
+
+  handleRetryMoveAttempt(fromSquare, toSquare) {
+    if (!this.reviewData || this.reviewMoveIndex <= 0) return;
+    const moveData = this.reviewData.moves[this.reviewMoveIndex - 1];
+    if (!moveData) return;
+
+    const feedbackEl = document.getElementById('std-retry-feedback');
+    const isBest =
+      moveData.bestMove &&
+      fromSquare === moveData.bestMove.from &&
+      toSquare === moveData.bestMove.to;
+
+    if (isBest) {
+      soundManager.play('move');
+      this.board.clearArrows();
+      this.board.addArrow(fromSquare, toSquare, 'rgba(34, 197, 94, 0.9)', 'arrowhead-green');
+      this.board.setHighlights({ lastMove: { from: fromSquare, to: toSquare } });
+
+      if (feedbackEl) {
+        feedbackEl.innerHTML = `
+          <div class="retry-feedback-toast success">
+            ${icons.check} <span>${i18n.t('standard.retrySuccess')}</span>
+          </div>
+        `;
+      }
+    } else {
+      if (feedbackEl) {
+        feedbackEl.innerHTML = `
+          <div class="retry-feedback-toast hint">
+            ${icons.alertTriangle} <span>${i18n.t('standard.retryHint')}</span>
+          </div>
+        `;
+      }
+
+      if (moveData.bestMove) {
+        this.board.clearArrows();
+        this.board.addArrow(moveData.bestMove.from, moveData.bestMove.to, 'rgba(34, 197, 94, 0.9)', 'arrowhead-green');
+      }
+
+      setTimeout(() => {
+        if (this.isReviewMode && this.isRetryingMove) {
+          const resetBoard = new Chess(moveData.prevFen).board();
+          this.board.setPosition(resetBoard);
+          this.board.clearHighlights();
+        }
+      }, 1400);
+    }
+  }
+
+  exitReviewMode() {
+    this.isReviewMode = false;
+    this.isAnalyzing = false;
+    this.isRetryingMove = false;
+
+    if (this.board) {
+      this.board.clearArrows();
+      this.board.clearHighlights();
+    }
+
+    const normalPanel = document.getElementById('std-normal-side-panel');
+    const reviewMount = document.getElementById('std-review-mount');
+    if (normalPanel) normalPanel.style.display = 'flex';
+    if (reviewMount) reviewMount.style.display = 'none';
+
+    // Jump back to latest position
+    this.jumpToHistory(this.historySnapshots.length - 1);
+    this.updateUI();
   }
 
   findKingSquare(color, chessInstance = this.chess) {

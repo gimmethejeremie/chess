@@ -43,3 +43,15 @@ All graphical and audio assets used in **Chess Playground** are strictly free an
 | `castle.mp3` | Castling | Lichess `standard/GenericNotify.mp3` | CC0 / Open Source |
 | `game-end.mp3` | Checkmate / Victory | Lichess `sfx/Victory.mp3` | CC0 / Open Source |
 | `low-time.mp3` | Low time warning | Lichess `standard/LowTime.mp3` | CC0 / Open Source |
+
+---
+
+## 3. Chess Engine (Stockfish.js)
+
+- **Engine**: Stockfish Chess Engine compiled to WebAssembly / JavaScript
+- **Original Authors**: Tord Romstad, Marco Costalba, Joona Kiiski, Gary Linscott, and the Stockfish contributors
+- **WebAssembly/JS Port**: Niklas Fiekas ([stockfish.js](https://github.com/niklasf/stockfish.js))
+- **Source**: [https://github.com/official-stockfish/Stockfish](https://github.com/official-stockfish/Stockfish) & [https://github.com/niklasf/stockfish.js](https://github.com/niklasf/stockfish.js)
+- **License**: GNU General Public License v3.0 (GPLv3)
+- **Location**: `/public/stockfish/stockfish.wasm.js`, `/public/stockfish/stockfish.wasm`, `/public/stockfish/stockfish.js`
+
